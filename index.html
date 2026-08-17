@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Habeas Petition Generator</title>
+  <!-- Load Open-Source Libraries from Verified CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.7/dist/pizzip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docxtemplater@3.50.0/build/docxtemplater.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  
+  <style>
+    body { font-family: sans-serif; margin: 40px; max-width: 500px; }
+    .field { margin-bottom: 15px; }
+    label { display: block; font-weight: bold; margin-bottom: 5px; }
+    input, select { width: 100%; padding: 8px; box-sizing: border-box; }
+    button { padding: 10px 20px; background: #0056b3; color: white; border: none; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <h2>Habeas Petition Generator</h2>
+
+  <div class="field">
+    <label>Select State:</label>
+    <select id="jurisdiction">
+      <option value="MA">Massachusetts</option>
+      <option value="NH">New Hampshire</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Type of Habeas Petition:</label>
+    <select id="go_class">
+      <option value="YES">GO Class Proceeding</option>
+      <option value="NO">Non-GO 1225/1226 Proceeding</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Plaintiff Name:</label>
+    <input type="text" id="plaintiff" value="Jane Doe">
+  </div>
+
+  <div class="field">
+    <label>Docket Number:</label>
+    <input type="text" id="case_num" value="2026-CV-04321">
+  </div>
+
+  <button onclick="generateDocument()">Generate & Download Pleading (.docx)</button>
+
+  <script>
+    /**
+     * PARSING ENGINE MODULE: Conditional IF/END IF Parser
+     * Un-splits Word XML inside brackets and translates [IF ...] / [END IF] tags into docxtemplater sections.
+     */
+    function parseIfTags(xmlContent) {
+      // 1. Repair split Word XML runs inside brackets [ ... ]
+      // Example: [<w:t>IF </w:t><w:t>MA]</w:t> -> [IF MA]
+      xmlContent = xmlContent.replace(/\[[^\]]*?\]/g, function(match) {
+        return match.replace(/<[^>]+>/g, '');
+      });
+
+      // 2. Parse [IF ...] and [END IF] tags using LIFO Stack
+      const tagRegex = /\[\s*(IF\s+[^\]]+|END\s+IF)\s*\]/gi;
+      const stack = [];
+
+      return xmlContent.replace(tagRegex, (match, tagBody) => {
+        const cleanTag = tagBody.trim().replace(/\s+/g, ' ').toUpperCase();
+        
+        if (/^IF\s+/i.test(cleanTag)) {
+          stack.push(cleanTag);
+          return `[# ${cleanTag}]`;
+        } else if (/^END\s+IF$/i.test(cleanTag)) {
+          const lastOpenedTag = stack.pop();
+          if (!lastOpenedTag) {
+            console.error("Template Syntax Error: Found an [END IF] without a matching [IF]");
+            return match;
+          }
+          return `[/ ${lastOpenedTag}]`;
+        }
+        return match;
+      });
+    }
+
+    function generateDocument() {
+      // 1. Fetch template.docx from local directory
+      fetch('template.docx')
+        .then(response => response.arrayBuffer())
+        .then(buffer => {
+          const zip = new PizZip(buffer);
+
+          // 2. Run XML through parsing engine modules
+          Object.keys(zip.files).forEach(function (filename) {
+            if (filename.startsWith("word/") && filename.endsWith(".xml")) {
+              let content = zip.files[filename].asText();
+              content = parseIfTags(content);
+              zip.file(filename, content);
+            }
+          });
+
+          // 3. Initialize docxtemplater with Strict Type Parser
+          const doc = new window.docxtemplater(zip, {
+            delimiters: { start: '[', end: ']' },
+            paragraphLoop: true,
+            linebreaks: true,
+            parser: function(tag) {
+              // Normalize tag: strip section prefix if present, collapse spaces, convert to UPPERCASE
+              const cleanTag = tag.trim().replace(/^[\#\/\^]\s*/, '').replace(/\s+/g, ' ').toUpperCase();
+
+              return {
+                get(scope) {
+                  const val = scope[cleanTag];
+                  
+                  // BOOLEAN FLAGS (Sections): Return boolean directly (true = show, false = hide)
+                  if (typeof val === 'boolean') {
+                    return val;
+                  }
+                  
+                  // VALUE PLACEHOLDERS: Return text value or safety warning
+                  if (val === undefined || val === null || val === "") {
+                    return "*** MISSING DATA ***";
+                  }
+                  return val;
+                }
+              };
+            }
+          });
+
+          // 4. Gather form inputs and set jurisdiction values
+          const jurisdictionCode = document.getElementById('jurisdiction').value;
+          const stateName = (jurisdictionCode === 'MA') ? 'Massachusetts' : 'New Hampshire';
+          const isGoClass = document.getElementById('go_class').value === 'YES';
+          
+          // Data Object
+          const data = {
+            "PLAINTIFF NAME": document.getElementById('plaintiff').value,
+            "DEFENDANT NAME": "Department of Homeland Security",
+            "CASE NUMBER": document.getElementById('case_num').value,
+            "JURISDICTION": stateName,
+            
+            // Strict Boolean Flags for parsing engine
+            "IF MASSACHUSETTS": jurisdictionCode === 'MA',
+            "IF NEW HAMPSHIRE": jurisdictionCode === 'NH',
+            "IF GO CLASS": isGoClass
+          };
+
+          // 5. Render template with data
+          doc.render(data);
+
+          // 6. Generate and trigger download
+          const out = doc.getZip().generate({
+            type: "blob",
+            mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          });
+
+          saveAs(out, "Pleading_Output.docx");
+        })
+        .catch(error => {
+          alert("Error generating document: " + error.message);
+        });
+    }
+  </script>
+</body>
+</html>

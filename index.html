@@ -3,20 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <title>Habeas Petition Generator</title>
+  <link rel="stylesheet" href="css/styles.css">
   
-  <!-- Verified CDNs -->
+  <!-- CDN Dependencies -->
   <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.7/dist/pizzip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/docxtemplater@3.50.0/build/docxtemplater.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
-  
-  <style>
-    body { font-family: sans-serif; margin: 40px; max-width: 540px; line-height: 1.5; }
-    .field { margin-bottom: 18px; }
-    label { display: block; font-weight: bold; margin-bottom: 6px; }
-    input, select { width: 100%; padding: 9px; font-size: 14px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
-    button { width: 100%; padding: 12px 20px; background: #0056b3; color: white; font-size: 16px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; }
-    button:hover { background: #004085; }
-  </style>
 </head>
 <body>
 
@@ -53,161 +45,10 @@
     <input type="text" id="case_number" value="2026-CV-04321">
   </div>
 
-  <button onclick="generateDocument()">Generate &amp; Download Pleading (.docx)</button>
+  <button class="btn-primary" onclick="generateHabeasPetition()">Generate &amp; Download Pleading (.docx)</button>
 
-  <script>
-    /**
-     * IF / END IF Parser
-     * 1. Heals split Word XML runs inside brackets
-     * 2. Cleans Word smart/curly quotes
-     * 3. Replaces human operators ('and', 'or', '=')
-     * 4. Converts to docxtemplater [#...] and [/...]
-     */
-    function parseIfTags(xmlContent) {
-      xmlContent = xmlContent.replace(/\[[^\]]*?\]/g, match => match.replace(/<[^>]+>/g, ''));
-
-      const tagRegex = /\[\s*(IF\s+[^\]]+|END\s+IF)\s*\]/gi;
-      const stack = [];
-
-      return xmlContent.replace(tagRegex, (match, tagBody) => {
-        const trimmed = tagBody.trim();
-        
-        if (/^IF\s+/i.test(trimmed)) {
-          let condition = trimmed.replace(/^IF\s+/i, '').trim()
-            .replace(/[\u201C\u201D]/g, '"')   // Smart double quotes -> "
-            .replace(/[\u2018\u2019]/g, "'")   // Smart single quotes -> '
-            .replace(/\band\b/gi, '&&')        // and -> &&
-            .replace(/\bor\b/gi, '||')          // or  -> ||
-            .replace(/\s+=\s+/g, ' == ');       // =   -> ==
-
-          stack.push(condition);
-          return `[#${condition}]`;
-        } else if (/^END\s+IF$/i.test(trimmed)) {
-          const lastCondition = stack.pop();
-          return lastCondition ? `[/${lastCondition}]` : match;
-        }
-        return match;
-      });
-    }
-
-    function generateDocument() {
-      fetch('template.docx')
-        .then(response => {
-          if (!response.ok) throw new Error(`Could not find 'template.docx'`);
-          return response.arrayBuffer();
-        })
-        .then(buffer => {
-          const zip = new PizZip(buffer);
-
-          // Pre-process XML
-          Object.keys(zip.files).forEach(filename => {
-            if (filename.startsWith("word/") && filename.endsWith(".xml")) {
-              zip.file(filename, parseIfTags(zip.files[filename].asText()));
-            }
-          });
-
-          // Build dynamic map of dropdown labels -> option values
-          const optionAliases = {};
-          document.querySelectorAll('select option').forEach(opt => {
-            const val = opt.value;
-            const fullText = opt.text.trim();
-            const textWithoutParens = fullText.replace(/\s*\([^)]*\)\s*$/, '').trim();
-
-            if (val) {
-              optionAliases[fullText.toLowerCase()] = val;
-              optionAliases[textWithoutParens.toLowerCase()] = val;
-            }
-          });
-
-          // Flexible, Case-Insensitive Parser with Label Auto-Mapping
-          function flexibleParser(tag) {
-            const cleanTag = tag.replace(/^[#\/\^]/, '').trim();
-
-            return {
-              get(scope) {
-                if (!cleanTag) return "";
-
-                // 1. Direct placeholder lookup (e.g. [Plaintiff Name], [Jurisdiction])
-                const targetKey = cleanTag.toLowerCase();
-                for (const key of Object.keys(scope)) {
-                  if (key.toLowerCase() === targetKey) {
-                    const val = scope[key];
-                    return (val === "" || val === undefined || val === null) ? "*** MISSING DATA ***" : val;
-                  }
-                }
-
-                // 2. Dynamic condition evaluation
-                try {
-                  let expr = cleanTag;
-
-                  // Normalize any full dropdown label inside quotes to its short value
-                  expr = expr.replace(/(["'])(.*?)\1/g, (match, q, text) => {
-                    const lower = text.trim().toLowerCase();
-                    if (optionAliases[lower]) {
-                      return `"${optionAliases[lower]}"`;
-                    }
-                    return match;
-                  });
-
-                  // Safely maps variable names with spaces to scope dictionary
-                  Object.keys(scope).sort((a, b) => b.length - a.length).forEach(varName => {
-                    const escaped = varName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                    const regex = new RegExp(`\\b${escaped}\\b`, 'gi');
-                    expr = expr.replace(regex, `scope["${varName}"]`);
-                  });
-
-                  const fn = new Function("scope", `return Boolean(${expr});`);
-                  return fn(scope);
-                } catch (e) {
-                  return false;
-                }
-              }
-            };
-          }
-
-          // Initialize Docxtemplater
-          const doc = new window.docxtemplater(zip, {
-            delimiters: { start: '[', end: ']' },
-            paragraphLoop: true,
-            linebreaks: true,
-            parser: flexibleParser
-          });
-
-          // Form selections
-          const petitionSelect = document.getElementById('petition_type');
-          const petitionVal = petitionSelect.value;
-          const petitionFullText = petitionSelect.options[petitionSelect.selectedIndex].text;
-
-          // 1:1 Data Payload
-          const data = {
-            "Jurisdiction": document.getElementById('jurisdiction').value,
-            
-            // Supports both short and full names
-            "Type of Habeas Petition": petitionVal,
-            "Petition Type": petitionVal,
-            "Type of Habeas Petition Full": petitionFullText,
-
-            // Text fields
-            "Plaintiff Name": document.getElementById('plaintiff').value,
-            "Defendant Name": document.getElementById('defendant').value,
-            "Case Number": document.getElementById('case_number').value
-          };
-
-          // Render & Download
-          doc.render(data);
-
-          const out = doc.getZip().generate({
-            type: "blob",
-            mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-          });
-
-          saveAs(out, "Pleading_Output.docx");
-        })
-        .catch(error => {
-          alert("Error generating document: " + error.message);
-          console.error(error);
-        });
-    }
-  </script>
+  <!-- Modular Scripts -->
+  <script src="js/docx-engine.js"></script>
+  <script src="js/habeas-app.js"></script>
 </body>
 </html>

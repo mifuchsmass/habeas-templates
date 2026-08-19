@@ -10,7 +10,7 @@
   <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
   
   <style>
-    body { font-family: sans-serif; margin: 40px; max-width: 520px; line-height: 1.5; }
+    body { font-family: sans-serif; margin: 40px; max-width: 540px; line-height: 1.5; }
     .field { margin-bottom: 18px; }
     label { display: block; font-weight: bold; margin-bottom: 6px; }
     input, select { width: 100%; padding: 9px; font-size: 14px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
@@ -31,10 +31,10 @@
   </div>
 
   <div class="field">
-    <label for="go_class">GO Class:</label>
-    <select id="go_class">
-      <option value="True">True</option>
-      <option value="False">False</option>
+    <label for="petition_type">Type of Habeas Petition:</label>
+    <select id="petition_type">
+      <option value="GO Class">GO Class Proceeding (GO Class)</option>
+      <option value="Non-GO">Non-GO 1225/1226 Proceeding (Non-GO)</option>
     </select>
   </div>
 
@@ -64,10 +64,8 @@
      * 4. Converts to docxtemplater [#...] and [/...]
      */
     function parseIfTags(xmlContent) {
-      // 1. Repair split Word XML runs inside brackets [ ... ]
       xmlContent = xmlContent.replace(/\[[^\]]*?\]/g, match => match.replace(/<[^>]+>/g, ''));
 
-      // 2. Parse [IF ...] and [END IF] tags using LIFO stack
       const tagRegex = /\[\s*(IF\s+[^\]]+|END\s+IF)\s*\]/gi;
       const stack = [];
 
@@ -108,7 +106,20 @@
             }
           });
 
-          // Flexible, Case-Insensitive Parser for Variables with Spaces
+          // Build dynamic map of dropdown labels -> option values
+          const optionAliases = {};
+          document.querySelectorAll('select option').forEach(opt => {
+            const val = opt.value;
+            const fullText = opt.text.trim();
+            const textWithoutParens = fullText.replace(/\s*\([^)]*\)\s*$/, '').trim();
+
+            if (val) {
+              optionAliases[fullText.toLowerCase()] = val;
+              optionAliases[textWithoutParens.toLowerCase()] = val;
+            }
+          });
+
+          // Flexible, Case-Insensitive Parser with Label Auto-Mapping
           function flexibleParser(tag) {
             const cleanTag = tag.replace(/^[#\/\^]/, '').trim();
 
@@ -116,7 +127,7 @@
               get(scope) {
                 if (!cleanTag) return "";
 
-                // 1. Case-insensitive lookup for placeholders (matches [PLAINTIFF NAME] and [Plaintiff Name])
+                // 1. Direct placeholder lookup (e.g. [Plaintiff Name], [Jurisdiction])
                 const targetKey = cleanTag.toLowerCase();
                 for (const key of Object.keys(scope)) {
                   if (key.toLowerCase() === targetKey) {
@@ -125,11 +136,20 @@
                   }
                 }
 
-                // 2. Condition evaluation (e.g. Jurisdiction == "Massachusetts", GO CLASS == "True")
+                // 2. Dynamic condition evaluation
                 try {
                   let expr = cleanTag;
 
-                  // Safely maps variable names (case-insensitive with spaces) to scope
+                  // Normalize any full dropdown label inside quotes to its short value
+                  expr = expr.replace(/(["'])(.*?)\1/g, (match, q, text) => {
+                    const lower = text.trim().toLowerCase();
+                    if (optionAliases[lower]) {
+                      return `"${optionAliases[lower]}"`;
+                    }
+                    return match;
+                  });
+
+                  // Safely maps variable names with spaces to scope dictionary
                   Object.keys(scope).sort((a, b) => b.length - a.length).forEach(varName => {
                     const escaped = varName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                     const regex = new RegExp(`\\b${escaped}\\b`, 'gi');
@@ -139,7 +159,7 @@
                   const fn = new Function("scope", `return Boolean(${expr});`);
                   return fn(scope);
                 } catch (e) {
-                  return false; // Hide section if expression fails
+                  return false;
                 }
               }
             };
@@ -153,10 +173,21 @@
             parser: flexibleParser
           });
 
-          // Strict Data Mapping
+          // Form selections
+          const petitionSelect = document.getElementById('petition_type');
+          const petitionVal = petitionSelect.value;
+          const petitionFullText = petitionSelect.options[petitionSelect.selectedIndex].text;
+
+          // 1:1 Data Payload
           const data = {
             "Jurisdiction": document.getElementById('jurisdiction').value,
-            "GO Class": document.getElementById('go_class').value,
+            
+            // Supports both short and full names
+            "Type of Habeas Petition": petitionVal,
+            "Petition Type": petitionVal,
+            "Type of Habeas Petition Full": petitionFullText,
+
+            // Text fields
             "Plaintiff Name": document.getElementById('plaintiff').value,
             "Defendant Name": document.getElementById('defendant').value,
             "Case Number": document.getElementById('case_number').value

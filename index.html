@@ -3,17 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <title>Habeas Petition Generator</title>
-  <!-- Load Open-Source Libraries from Verified CDN -->
+  
+  <!-- Verified CDNs -->
   <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.7/dist/pizzip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/docxtemplater@3.50.0/build/docxtemplater.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
   
   <style>
-    body { font-family: sans-serif; margin: 40px; max-width: 500px; }
-    .field { margin-bottom: 15px; }
-    label { display: block; font-weight: bold; margin-bottom: 5px; }
-    input, select { width: 100%; padding: 8px; box-sizing: border-box; }
-    button { padding: 10px 20px; background: #0056b3; color: white; border: none; cursor: pointer; }
+    body { font-family: sans-serif; margin: 40px; max-width: 520px; line-height: 1.5; }
+    .field { margin-bottom: 18px; }
+    label { display: block; font-weight: bold; margin-bottom: 6px; }
+    input, select { width: 100%; padding: 9px; font-size: 14px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+    button { width: 100%; padding: 12px 20px; background: #0056b3; color: white; font-size: 16px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; }
+    button:hover { background: #004085; }
   </style>
 </head>
 <body>
@@ -21,133 +23,148 @@
   <h2>Habeas Petition Generator</h2>
 
   <div class="field">
-    <label>Select State:</label>
+    <label for="jurisdiction">Jurisdiction:</label>
     <select id="jurisdiction">
-      <option value="MA">Massachusetts</option>
-      <option value="NH">New Hampshire</option>
+      <option value="Massachusetts">Massachusetts</option>
+      <option value="New Hampshire">New Hampshire</option>
     </select>
   </div>
 
   <div class="field">
-    <label>Type of Habeas Petition:</label>
+    <label for="go_class">GO Class:</label>
     <select id="go_class">
-      <option value="YES">GO Class Proceeding</option>
-      <option value="NO">Non-GO 1225/1226 Proceeding</option>
+      <option value="True">True</option>
+      <option value="False">False</option>
     </select>
   </div>
 
   <div class="field">
-    <label>Plaintiff Name:</label>
+    <label for="plaintiff">Plaintiff Name:</label>
     <input type="text" id="plaintiff" value="Jane Doe">
   </div>
 
   <div class="field">
-    <label>Docket Number:</label>
-    <input type="text" id="case_num" value="2026-CV-04321">
+    <label for="defendant">Defendant Name:</label>
+    <input type="text" id="defendant" value="Department of Homeland Security">
   </div>
 
-  <button onclick="generateDocument()">Generate & Download Pleading (.docx)</button>
+  <div class="field">
+    <label for="case_number">Case Number:</label>
+    <input type="text" id="case_number" value="2026-CV-04321">
+  </div>
+
+  <button onclick="generateDocument()">Generate &amp; Download Pleading (.docx)</button>
 
   <script>
     /**
-     * PARSING ENGINE MODULE: Conditional IF/END IF Parser
-     * Un-splits Word XML inside brackets and translates [IF ...] / [END IF] tags into docxtemplater sections.
+     * IF / END IF Parser
+     * 1. Heals split Word XML runs inside brackets
+     * 2. Cleans Word smart/curly quotes
+     * 3. Replaces human operators ('and', 'or', '=')
+     * 4. Converts to docxtemplater [#...] and [/...]
      */
     function parseIfTags(xmlContent) {
       // 1. Repair split Word XML runs inside brackets [ ... ]
-      // Example: [<w:t>IF </w:t><w:t>MA]</w:t> -> [IF MA]
-      xmlContent = xmlContent.replace(/\[[^\]]*?\]/g, function(match) {
-        return match.replace(/<[^>]+>/g, '');
-      });
+      xmlContent = xmlContent.replace(/\[[^\]]*?\]/g, match => match.replace(/<[^>]+>/g, ''));
 
-      // 2. Parse [IF ...] and [END IF] tags using LIFO Stack
+      // 2. Parse [IF ...] and [END IF] tags using LIFO stack
       const tagRegex = /\[\s*(IF\s+[^\]]+|END\s+IF)\s*\]/gi;
       const stack = [];
 
       return xmlContent.replace(tagRegex, (match, tagBody) => {
-        const cleanTag = tagBody.trim().replace(/\s+/g, ' ').toUpperCase();
+        const trimmed = tagBody.trim();
         
-        if (/^IF\s+/i.test(cleanTag)) {
-          stack.push(cleanTag);
-          return `[# ${cleanTag}]`;
-        } else if (/^END\s+IF$/i.test(cleanTag)) {
-          const lastOpenedTag = stack.pop();
-          if (!lastOpenedTag) {
-            console.error("Template Syntax Error: Found an [END IF] without a matching [IF]");
-            return match;
-          }
-          return `[/ ${lastOpenedTag}]`;
+        if (/^IF\s+/i.test(trimmed)) {
+          let condition = trimmed.replace(/^IF\s+/i, '').trim()
+            .replace(/[\u201C\u201D]/g, '"')   // Smart double quotes -> "
+            .replace(/[\u2018\u2019]/g, "'")   // Smart single quotes -> '
+            .replace(/\band\b/gi, '&&')        // and -> &&
+            .replace(/\bor\b/gi, '||')          // or  -> ||
+            .replace(/\s+=\s+/g, ' == ');       // =   -> ==
+
+          stack.push(condition);
+          return `[#${condition}]`;
+        } else if (/^END\s+IF$/i.test(trimmed)) {
+          const lastCondition = stack.pop();
+          return lastCondition ? `[/${lastCondition}]` : match;
         }
         return match;
       });
     }
 
     function generateDocument() {
-      // 1. Fetch template.docx from local directory
       fetch('template.docx')
-        .then(response => response.arrayBuffer())
+        .then(response => {
+          if (!response.ok) throw new Error(`Could not find 'template.docx'`);
+          return response.arrayBuffer();
+        })
         .then(buffer => {
           const zip = new PizZip(buffer);
 
-          // 2. Run XML through parsing engine modules
-          Object.keys(zip.files).forEach(function (filename) {
+          // Pre-process XML
+          Object.keys(zip.files).forEach(filename => {
             if (filename.startsWith("word/") && filename.endsWith(".xml")) {
-              let content = zip.files[filename].asText();
-              content = parseIfTags(content);
-              zip.file(filename, content);
+              zip.file(filename, parseIfTags(zip.files[filename].asText()));
             }
           });
 
-          // 3. Initialize docxtemplater with Strict Type Parser
+          // Flexible, Case-Insensitive Parser for Variables with Spaces
+          function flexibleParser(tag) {
+            const cleanTag = tag.replace(/^[#\/\^]/, '').trim();
+
+            return {
+              get(scope) {
+                if (!cleanTag) return "";
+
+                // 1. Case-insensitive lookup for placeholders (matches [PLAINTIFF NAME] and [Plaintiff Name])
+                const targetKey = cleanTag.toLowerCase();
+                for (const key of Object.keys(scope)) {
+                  if (key.toLowerCase() === targetKey) {
+                    const val = scope[key];
+                    return (val === "" || val === undefined || val === null) ? "*** MISSING DATA ***" : val;
+                  }
+                }
+
+                // 2. Condition evaluation (e.g. Jurisdiction == "Massachusetts", GO CLASS == "True")
+                try {
+                  let expr = cleanTag;
+
+                  // Safely maps variable names (case-insensitive with spaces) to scope
+                  Object.keys(scope).sort((a, b) => b.length - a.length).forEach(varName => {
+                    const escaped = varName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const regex = new RegExp(`\\b${escaped}\\b`, 'gi');
+                    expr = expr.replace(regex, `scope["${varName}"]`);
+                  });
+
+                  const fn = new Function("scope", `return Boolean(${expr});`);
+                  return fn(scope);
+                } catch (e) {
+                  return false; // Hide section if expression fails
+                }
+              }
+            };
+          }
+
+          // Initialize Docxtemplater
           const doc = new window.docxtemplater(zip, {
             delimiters: { start: '[', end: ']' },
             paragraphLoop: true,
             linebreaks: true,
-            parser: function(tag) {
-              // Normalize tag: strip section prefix if present, collapse spaces, convert to UPPERCASE
-              const cleanTag = tag.trim().replace(/^[\#\/\^]\s*/, '').replace(/\s+/g, ' ').toUpperCase();
-
-              return {
-                get(scope) {
-                  const val = scope[cleanTag];
-                  
-                  // BOOLEAN FLAGS (Sections): Return boolean directly (true = show, false = hide)
-                  if (typeof val === 'boolean') {
-                    return val;
-                  }
-                  
-                  // VALUE PLACEHOLDERS: Return text value or safety warning
-                  if (val === undefined || val === null || val === "") {
-                    return "*** MISSING DATA ***";
-                  }
-                  return val;
-                }
-              };
-            }
+            parser: flexibleParser
           });
 
-          // 4. Gather form inputs and set jurisdiction values
-          const jurisdictionCode = document.getElementById('jurisdiction').value;
-          const stateName = (jurisdictionCode === 'MA') ? 'Massachusetts' : 'New Hampshire';
-          const isGoClass = document.getElementById('go_class').value === 'YES';
-          
-          // Data Object
+          // Strict Data Mapping
           const data = {
-            "PLAINTIFF NAME": document.getElementById('plaintiff').value,
-            "DEFENDANT NAME": "Department of Homeland Security",
-            "CASE NUMBER": document.getElementById('case_num').value,
-            "JURISDICTION": stateName,
-            
-            // Strict Boolean Flags for parsing engine
-            "IF MASSACHUSETTS": jurisdictionCode === 'MA',
-            "IF NEW HAMPSHIRE": jurisdictionCode === 'NH',
-            "IF GO CLASS": isGoClass
+            "Jurisdiction": document.getElementById('jurisdiction').value,
+            "GO Class": document.getElementById('go_class').value,
+            "Plaintiff Name": document.getElementById('plaintiff').value,
+            "Defendant Name": document.getElementById('defendant').value,
+            "Case Number": document.getElementById('case_number').value
           };
 
-          // 5. Render template with data
+          // Render & Download
           doc.render(data);
 
-          // 6. Generate and trigger download
           const out = doc.getZip().generate({
             type: "blob",
             mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -157,6 +174,7 @@
         })
         .catch(error => {
           alert("Error generating document: " + error.message);
+          console.error(error);
         });
     }
   </script>

@@ -20,10 +20,8 @@
     <label for="jurisdiction">Jurisdiction:</label>
     <select id="jurisdiction">
       <option value="Massachusetts">Massachusetts</option>
-      <option value="Maine">Maine</option>
       <option value="New Hampshire">New Hampshire</option>
       <option value="Rhode Island">Rhode Island</option>
-      <option value="Vermont">Vermont</option>
     </select>
   </div>
 
@@ -35,13 +33,19 @@
     </select>
   </div>
 
+  <!-- Petitioner Name Breakdown Row -->
   <div class="field">
-    <label for="plaintiff">Plaintiff Name:</label>
-    <input type="text" id="plaintiff" value="Jane Doe">
+    <label>Petitioner Name:</label>
+    <div class="name-grid">
+      <input type="text" id="petitioner_first_name" placeholder="First Name" value="Jane">
+      <input type="text" id="petitioner_middle_name" placeholder="Middle" value="M.">
+      <input type="text" id="petitioner_last_name" placeholder="Last Name" value="Doe">
+      <input type="text" id="petitioner_suffix" placeholder="Suffix (Jr., III)" value="">
+    </div>
   </div>
 
   <div class="field">
-    <label for="defendant">Defendant Name:</label>
+    <label for="defendant">Respondent / Defendant Name:</label>
     <input type="text" id="defendant" value="Department of Homeland Security">
   </div>
 

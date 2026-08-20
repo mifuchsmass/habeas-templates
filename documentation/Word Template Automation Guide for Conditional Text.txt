@@ -1,10 +1,10 @@
 ================================================================================
-           WORD TEMPLATE AUTOMATION GUIDE FOR LEGAL PLEADINGS
+           WORD TEMPLATE AUTOMATION GUIDE FOR HABEAS PLEADINGS
 ================================================================================
 
 This guide explains how to format Microsoft Word (.docx) templates so our
-document generator can automatically insert client details, court headers, and 
-conditional legal paragraphs.
+habeas petition generator can automatically insert petitioner details, 
+court headers, and conditional legal paragraphs.
 
 
 1. HOW PLACEHOLDERS WORK (FILLING IN BLANKS)
@@ -12,20 +12,27 @@ conditional legal paragraphs.
 Whenever you want the generator to fill in information from the form, wrap the
 field name in square brackets: [Field Name]
 
-Examples:
-• [Plaintiff Name]
-• [Defendant Name]
+Available Name Fields:
+• [Petitioner Name]           -> Combines First, Middle, Last, and Suffix
+                                 (e.g., "Jane M. Doe, Jr.")
+• [Petitioner First Name]     -> "Jane"
+• [Petitioner Middle Name]    -> "M."
+• [Petitioner Last Name]      -> "Doe"
+• [Petitioner Suffix]         -> "Jr."
+
+Other Common Fields:
+• [Defendant Name] or [Respondent Name]
 • [Case Number]
 • [Jurisdiction]
 
 Key Features for Legal Drafting:
-• Not Case-Sensitive: [PLAINTIFF NAME] and [Plaintiff Name] will both pull the 
-  same plaintiff's name.
-• Capitalization Trick (All-Caps):
-  - If you type the placeholder in ALL CAPS: [PLAINTIFF NAME]
-    -> The generated document outputs: JANE DOE
-  - If you type the placeholder normally: [Plaintiff Name]
-    -> The generated document outputs: Jane Doe
+• Not Case-Sensitive: [PETITIONER NAME] and [Petitioner Name] will both pull the 
+  same petitioner's name.
+• Capitalization Trick (Smart Caps):
+  - If you type the placeholder in ALL CAPS: [PETITIONER NAME]
+    -> The generated document outputs: JANE M. DOE
+  - If you type the placeholder normally: [Petitioner Name]
+    -> The generated document outputs: Jane M. Doe
 • Missing Data Warning: If someone forgets to enter a field on the web form, the 
   document will print "*** MISSING DATA ***" in that spot so incomplete pleadings 
   are never accidentally filed with the court.
@@ -51,9 +58,9 @@ Use this when you want Option A for one scenario, and Option B for everything el
 
 Example:
   [IF Type of Habeas Petition = "GO Class"]
-  Plaintiff brings this action on behalf of all similarly situated individuals.
+  Petitioner brings this action on behalf of all similarly situated individuals.
   [ELSE]
-  Plaintiff brings this action individually.
+  Petitioner brings this action individually.
   [END IF]
 
 C. Choosing Among Multiple Options ([IF] ... [ELSE IF] ... [ELSE] ... [END IF])
@@ -101,7 +108,7 @@ an empty "4." or blank space):
 
 Example:
   [IF Type of Habeas Petition = "GO Class"]
-  4. Plaintiff brings this action on behalf of all similarly situated parties.
+  4. Petitioner brings this action on behalf of all similarly situated parties.
   [END IF]
 
   What happens:
@@ -134,28 +141,28 @@ Copy and paste this entire sample directly into your Word template:
 
 
 _________________________________________  )
-[PLAINTIFF NAME],                          )
-Plaintiff,                                 )
+[PETITIONER NAME],                         )
+Petitioner,                                )
 v.                                         )   DOCKET NO. [CASE NUMBER]
 [DEFENDANT NAME],                          )
-Defendant.                                 )
+Respondent.                                )
 _________________________________________  )
 
 
-COMPLAINT
+PETITION FOR WRIT OF HABEAS CORPUS
 
 
-1. Plaintiff, [Plaintiff Name], is an individual residing in [Jurisdiction].
+1. Petitioner, [Petitioner Name], is an individual residing in [Jurisdiction].
 
-2. Defendant is the [Defendant Name] and the warden in the Detention Facility in [Jurisdiction].
+2. Respondent is the [Defendant Name] and the warden in the Detention Facility in [Jurisdiction].
 
 3. This action is brought pursuant to [Jurisdiction] law. [IF Jurisdiction = "Massachusetts"]See Mass. Gen. Laws ch. 260, § 2.[ELSE IF Jurisdiction = "Rhode Island"]See R.I. Gen. Laws § 10-9-1.[ELSE]See applicable federal statutory provisions.[END IF]
 
 [IF Type of Habeas Petition = "GO Class"]
-4. Plaintiff brings this action on behalf of all similarly situated parties as a GO Class proceeding.
+4. Petitioner brings this action on behalf of all similarly situated parties as a GO Class proceeding.
 [END IF]
 
-5. [IF Type of Habeas Petition = "GO Class"]Plaintiff seeks class-wide declaratory and injunctive relief on behalf of all class members.[ELSE]Plaintiff seeks individual habeas corpus relief and an immediate bond hearing.[END IF]
+5. [IF Type of Habeas Petition = "GO Class"]Petitioner seeks class-wide declaratory and injunctive relief on behalf of all class members.[ELSE]Petitioner seeks individual habeas corpus relief and an immediate bond hearing.[END IF]
 
 
 DATED this _____ day of ____________, 2026.

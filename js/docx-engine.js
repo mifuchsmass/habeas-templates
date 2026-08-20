@@ -106,10 +106,18 @@ const DocxEngine = {
             for (const k of Object.keys(scope)) {
               if (k.toLowerCase() === target) {
                 const val = scope[k];
-                return (val === "" || val === undefined || val === null) ? "*** MISSING DATA ***" : val;
+                if (val === "" || val === undefined || val === null) {
+                  return "*** MISSING DATA ***";
+                }
+                
+                // If tag was typed in [ALL CAPS] in the template, output in ALL CAPS:
+                if (typeof val === "string" && cleanTag === cleanTag.toUpperCase() && /[A-Z]/.test(cleanTag)) {
+                  return val.toUpperCase();
+                }
+
+                return val;
               }
             }
-
             // Condition evaluation
             try {
               let expr = cleanTag;

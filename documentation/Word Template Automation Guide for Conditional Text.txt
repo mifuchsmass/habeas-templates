@@ -1,0 +1,162 @@
+================================================================================
+           WORD TEMPLATE AUTOMATION GUIDE FOR LEGAL PLEADINGS
+================================================================================
+
+This guide explains how to format Microsoft Word (.docx) templates so our
+document generator can automatically insert client details, court headers, and 
+conditional legal paragraphs.
+
+
+1. HOW PLACEHOLDERS WORK (FILLING IN BLANKS)
+--------------------------------------------------------------------------------
+Whenever you want the generator to fill in information from the form, wrap the
+field name in square brackets: [Field Name]
+
+Examples:
+• [Plaintiff Name]
+• [Defendant Name]
+• [Case Number]
+• [Jurisdiction]
+
+Key Features for Legal Drafting:
+• Not Case-Sensitive: [PLAINTIFF NAME] and [Plaintiff Name] will both pull the 
+  same plaintiff's name.
+• Capitalization Trick (All-Caps):
+  - If you type the placeholder in ALL CAPS: [PLAINTIFF NAME]
+    -> The generated document outputs: JANE DOE
+  - If you type the placeholder normally: [Plaintiff Name]
+    -> The generated document outputs: Jane Doe
+• Missing Data Warning: If someone forgets to enter a field on the web form, the 
+  document will print "*** MISSING DATA ***" in that spot so incomplete pleadings 
+  are never accidentally filed with the court.
+• Curly Quotes: Word automatically turns straight quotes into curly "smart quotes." 
+  The engine handles this automatically without breaking.
+
+
+2. CONDITIONAL RULES (CHOOSING WHICH LANGUAGE TO INCLUDE)
+--------------------------------------------------------------------------------
+You can tell Word to show or hide language based on the case type, state, or 
+court selected.
+
+A. Showing Language Only When Applicable ([IF] ... [END IF])
+Use this when language should only appear under one specific condition.
+
+Example:
+  [IF Jurisdiction = "Massachusetts"]
+  See Mass. Gen. Laws ch. 260, § 2.
+  [END IF]
+
+B. Choosing Between Two Options ([IF] ... [ELSE] ... [END IF])
+Use this when you want Option A for one scenario, and Option B for everything else.
+
+Example:
+  [IF Type of Habeas Petition = "GO Class"]
+  Plaintiff brings this action on behalf of all similarly situated individuals.
+  [ELSE]
+  Plaintiff brings this action individually.
+  [END IF]
+
+C. Choosing Among Multiple Options ([IF] ... [ELSE IF] ... [ELSE] ... [END IF])
+Use this when you have three or more distinct choices.
+
+Example (Court Header):
+  [IF Jurisdiction = "Massachusetts"]
+  IN THE UNITED STATES DISTRICT COURT FOR THE DISTRICT OF MASSACHUSETTS
+  [ELSE IF Jurisdiction = "Rhode Island"]
+  IN THE UNITED STATES DISTRICT COURT FOR THE DISTRICT OF RHODE ISLAND
+  [ELSE]
+  IN THE UNITED STATES DISTRICT COURT FOR THE DISTRICT OF [JURISDICTION]
+  [END IF]
+
+
+3. COMBINING CONDITIONS & COMPARISONS
+--------------------------------------------------------------------------------
+You can write natural conditions using everyday legal logic:
+
+• Equals:                   [IF Jurisdiction = "Massachusetts"]
+• Does NOT equal:           [IF Jurisdiction != "Massachusetts"]
+• Both must be true (AND):  [IF Jurisdiction = "Massachusetts" and Petition Type = "GO Class"]
+• Either can be true (OR):  [IF Jurisdiction = "Massachusetts" or Jurisdiction = "Rhode Island"]
+• Numeric Comparisons:      [IF Days In Detention >= 180]
+
+
+4. HOW TO AVOID EXTRA BLANK LINES AND KEEP AUTO-NUMBERING INTACT
+--------------------------------------------------------------------------------
+To make sure Word's automatic paragraph numbering (1, 2, 3, 4...) stays in 
+consecutive order without leaving orphan numbers or blank lines, follow these 
+two simple rules:
+
+RULE 1: Changing Words or Citations INSIDE a Paragraph
+If the numbered paragraph will ALWAYS exist, but the text inside it changes, 
+keep the tags on the exact same line:
+
+  3. This action is brought pursuant to [Jurisdiction] law. [IF Jurisdiction = "Massachusetts"]See Mass. Gen. Laws ch. 260, § 2.[ELSE]See applicable statutory provisions.[END IF]
+
+RULE 2: Making an ENTIRE Numbered Paragraph Optional
+If a paragraph should disappear completely when not needed (and not leave behind 
+an empty "4." or blank space):
+• Place [IF ...] on its own unnumbered line above the paragraph.
+• Put your legal text on the numbered line.
+• Place [END IF] on its own unnumbered line below the paragraph.
+
+Example:
+  [IF Type of Habeas Petition = "GO Class"]
+  4. Plaintiff brings this action on behalf of all similarly situated parties.
+  [END IF]
+
+  What happens:
+  - If "GO Class" is selected: Paragraph 4 is rendered normally.
+  - If "Non-GO" is selected: Paragraph 4 is completely removed, and the next 
+    paragraph automatically becomes paragraph 4.
+
+
+5. NESTING RULES (RULES INSIDE RULES)
+--------------------------------------------------------------------------------
+You can place one rule inside another rule. Just ensure that every [IF] has a 
+corresponding [END IF] at the end:
+
+  [IF Jurisdiction = "Massachusetts"]
+    [IF Type of Habeas Petition = "GO Class"]
+      Massachusetts Class Action Claims
+    [ELSE]
+      Massachusetts Individual Claims
+    [END IF]
+  [ELSE]
+    Out-of-District Claims
+  [END IF]
+
+
+6. COMPLETE SAMPLE TEMPLATE
+--------------------------------------------------------------------------------
+Copy and paste this entire sample directly into your Word template:
+
+[IF Jurisdiction = "Massachusetts"]IN THE UNITED STATES DISTRICT COURT FOR THE DISTRICT OF MASSACHUSETTS[ELSE IF Jurisdiction = "Rhode Island"]IN THE UNITED STATES DISTRICT COURT FOR THE DISTRICT OF RHODE ISLAND[ELSE]IN THE UNITED STATES DISTRICT COURT FOR THE DISTRICT OF [JURISDICTION][END IF]
+
+
+_________________________________________  )
+[PLAINTIFF NAME],                          )
+Plaintiff,                                 )
+v.                                         )   DOCKET NO. [CASE NUMBER]
+[DEFENDANT NAME],                          )
+Defendant.                                 )
+_________________________________________  )
+
+
+COMPLAINT
+
+
+1. Plaintiff, [Plaintiff Name], is an individual residing in [Jurisdiction].
+
+2. Defendant is the [Defendant Name] and the warden in the Detention Facility in [Jurisdiction].
+
+3. This action is brought pursuant to [Jurisdiction] law. [IF Jurisdiction = "Massachusetts"]See Mass. Gen. Laws ch. 260, § 2.[ELSE IF Jurisdiction = "Rhode Island"]See R.I. Gen. Laws § 10-9-1.[ELSE]See applicable federal statutory provisions.[END IF]
+
+[IF Type of Habeas Petition = "GO Class"]
+4. Plaintiff brings this action on behalf of all similarly situated parties as a GO Class proceeding.
+[END IF]
+
+5. [IF Type of Habeas Petition = "GO Class"]Plaintiff seeks class-wide declaratory and injunctive relief on behalf of all class members.[ELSE]Plaintiff seeks individual habeas corpus relief and an immediate bond hearing.[END IF]
+
+
+DATED this _____ day of ____________, 2026.
+================================================================================

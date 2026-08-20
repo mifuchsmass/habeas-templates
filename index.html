@@ -9,6 +9,8 @@
   <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.7/dist/pizzip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/docxtemplater@3.50.0/build/docxtemplater.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.3/dist/docx-preview.min.js"></script>
 </head>
 <body>
 
@@ -18,7 +20,10 @@
     <label for="jurisdiction">Jurisdiction:</label>
     <select id="jurisdiction">
       <option value="Massachusetts">Massachusetts</option>
+      <option value="Maine">Maine</option>
       <option value="New Hampshire">New Hampshire</option>
+      <option value="Rhode Island">Rhode Island</option>
+      <option value="Vermont">Vermont</option>
     </select>
   </div>
 
@@ -45,7 +50,16 @@
     <input type="text" id="case_number" value="2026-CV-04321">
   </div>
 
-  <button class="btn-primary" onclick="generateHabeasPetition()">Generate &amp; Download Pleading (.docx)</button>
+  <div class="action-row" style="display: flex; align-items: center; gap: 15px; margin-top: 10px;">
+    <button class="btn-primary" style="width: auto; flex-shrink: 0;" onclick="generateHabeasPetition()">Generate &amp; Download Pleading (.docx)</button>
+    <label style="display: inline-flex; align-items: center; gap: 6px; font-weight: normal; margin: 0; font-size: 13px; color: #555;">
+      <input type="checkbox" id="show_preview" style="width: auto; margin: 0;">
+      Select to see preview for viewing small test documents. DO NOT USE for large documents.
+    </label>
+  </div>
+
+  <!-- Document Preview Container -->
+  <div id="docx-preview-container"></div>
 
   <!-- Modular Scripts -->
   <script src="js/docx-engine.js"></script>

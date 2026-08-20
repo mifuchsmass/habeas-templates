@@ -2,34 +2,71 @@
  * Universal DOCX Template Engine
  */
 const DocxEngine = {
-  // 1. Repair split XML and translate [IF ...] / [END IF]
+  // Helper to sanitize condition strings
+  sanitizeCondition(rawCond) {
+    return rawCond.trim()
+      .replace(/[\u201C\u201D]/g, '"')
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/\band\b/gi, '&&')
+      .replace(/\bor\b/gi, '||')
+      .replace(/\s+=\s+/g, ' == ');
+  },
+
+  // 1. Repair split XML and translate [IF ...] / [ELSE IF ...] / [ELSE] / [END IF]
   parseIfTags(xmlContent) {
     xmlContent = xmlContent.replace(/\[[^\]]*?\]/g, match => match.replace(/<[^>]+>/g, ''));
-    const tagRegex = /\[\s*(IF\s+[^\]]+|END\s+IF)\s*\]/gi;
+    const tagRegex = /\[\s*(IF\s+[^\]]+|ELSE\s+IF\s+[^\]]+|ELSEIF\s+[^\]]+|ELSE|END\s+IF)\s*\]/gi;
     const stack = [];
 
     return xmlContent.replace(tagRegex, (match, tagBody) => {
       const trimmed = tagBody.trim();
-      if (/^IF\s+/i.test(trimmed)) {
-        let condition = trimmed.replace(/^IF\s+/i, '').trim()
-          .replace(/[\u201C\u201D]/g, '"')
-          .replace(/[\u2018\u2019]/g, "'")
-          .replace(/\band\b/gi, '&&')
-          .replace(/\bor\b/gi, '||')
-          .replace(/\s+=\s+/g, ' == ');
 
-        stack.push(condition);
+      if (/^IF\s+/i.test(trimmed)) {
+        const condition = this.sanitizeCondition(trimmed.replace(/^IF\s+/i, ''));
+        stack.push({ conditions: [condition], hasElse: false });
         return `[#${condition}]`;
-      } else if (/^END\s+IF$/i.test(trimmed)) {
-        const lastCondition = stack.pop();
-        return lastCondition ? `[/${lastCondition}]` : match;
       }
+
+      if (/^ELSE\s*IF\s+/i.test(trimmed) || /^ELSEIF\s+/i.test(trimmed)) {
+        if (stack.length === 0) return match;
+        const currentFrame = stack[stack.length - 1];
+        if (currentFrame.hasElse) return match;
+
+        const rawCond = trimmed.replace(/^(ELSE\s*IF|ELSEIF)\s+/i, '');
+        const newCondition = this.sanitizeCondition(rawCond);
+        const prevCondition = currentFrame.conditions[currentFrame.conditions.length - 1];
+
+        currentFrame.conditions.push(newCondition);
+        return `[/${prevCondition}][^${prevCondition}][#${newCondition}]`;
+      }
+
+      if (/^ELSE$/i.test(trimmed)) {
+        if (stack.length === 0) return match;
+        const currentFrame = stack[stack.length - 1];
+        if (currentFrame.hasElse) return match;
+
+        currentFrame.hasElse = true;
+        const prevCondition = currentFrame.conditions[currentFrame.conditions.length - 1];
+        return `[/${prevCondition}][^${prevCondition}]`;
+      }
+
+      if (/^END\s+IF$/i.test(trimmed)) {
+        if (stack.length === 0) return match;
+        const frame = stack.pop();
+
+        let closingTags = "";
+        for (let i = frame.conditions.length - 1; i >= 0; i--) {
+          closingTags += `[/${frame.conditions[i]}]`;
+        }
+        return closingTags;
+      }
+
       return match;
     });
   },
 
   // 2. Main Generation Function
-  async generate({ templatePath, data, outputFilename, selectElementForAliases }) {
+  async generate({ templatePath, data, outputFilename, selectElementForAliases, showPreview }) {
     try {
       const response = await fetch(templatePath);
       if (!response.ok) throw new Error(`Failed to load template: ${templatePath}`);
@@ -109,6 +146,17 @@ const DocxEngine = {
         type: "blob",
         mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
       });
+
+      // Render In-Browser Preview only if checkbox is selected
+      const container = document.getElementById('docx-preview-container');
+      if (container) {
+        if (showPreview && window.docx && typeof window.docx.renderAsync === "function") {
+          container.innerHTML = "";
+          await window.docx.renderAsync(out, container);
+        } else {
+          container.innerHTML = `<p style="color: #888; font-style: italic; padding: 10px;">Preview skipped.</p>`;
+        }
+      }
 
       saveAs(out, outputFilename || "Document_Output.docx");
     } catch (error) {

@@ -17,6 +17,7 @@ function generateHabeasPetition() {
     templatePath: 'templates/petition.docx',
     data: formData,
     outputFilename: `Habeas Petition ${formData["Plaintiff Name"] || "Draft"}.docx`,
-    selectElementForAliases: true
+    selectElementForAliases: true,
+    showPreview: document.getElementById('show_preview')?.checked
   });
 }

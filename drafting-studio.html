@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Habeas Drafting Studio & Validator</title>
+
+  <!-- Shared Project Stylesheet -->
+  <link rel="stylesheet" href="css/styles.css">
+
+<!-- External Parsing Libraries -->
+  <script src="https://unpkg.com/pizzip@3.1.7/dist/pizzip.js"></script>
+  <script src="https://unpkg.com/docxtemplater@3.42.0/build/docxtemplater.js"></script>
+  <script src="https://unpkg.com/docx-preview@0.3.2/dist/docx-preview.min.js"></script></head>
+<body>
+
+  <!-- 1. Password Lockscreen Overlay -->
+  <div id="auth-overlay">
+    <div class="auth-card">
+      <div style="font-size: 38px; margin-bottom: 10px;">🔒</div>
+      <h3>Drafting Studio Access</h3>
+      <p>Enter the volunteer access key to open the testing studio.</p>
+      
+      <div class="password-input-wrap">
+        <input type="password" id="accessPin" placeholder="Enter Access Key" autocomplete="off">
+        <button type="button" class="btn-toggle-pw" id="togglePwBtn" title="Show/Hide Password">👁️</button>
+      </div>
+
+      <button type="button" class="btn-primary" id="unlockBtn">Unlock Studio</button>
+      <p id="authError" class="auth-error">Incorrect access key.</p>
+    </div>
+  </div>
+
+  <!-- 2. Main Studio Interface -->
+  <h1>⚖️ Volunteer Drafting Studio & Logic Inspector</h1>
+  <p style="color: #666; font-size: 14px; margin-bottom: 24px;">
+    Drop your draft <b>.docx</b> template below to automatically verify all <code>[IF]</code>, <code>[ELSE IF]</code>, <code>[ELSE]</code>, and <code>[END IF]</code> tags before releasing to immigration attorneys.
+  </p>
+
+  <!-- Dropzone -->
+  <div class="dropzone" id="dropzone">
+    <div style="font-size: 32px; margin-bottom: 6px;">📄</div>
+    <strong style="color: #0056b3;">Drag &amp; Drop your .docx template here</strong>
+    <p>or click to browse from your computer</p>
+    <input type="file" id="fileInput" accept=".docx" style="display: none;">
+  </div>
+
+  <!-- Validation Results -->
+  <div id="results"></div>
+
+  <!-- 3. Live Test Sandbox -->
+  <div class="sandbox" id="sandbox">
+    <h3 style="margin: 0 0 6px 0;">🧪 Live Test Sandbox</h3>
+    <p style="font-size: 13px; color: #666; margin: 0 0 16px 0;">
+      Change the case variables below to verify that your conditional paragraphs render properly:
+    </p>
+    
+    <div class="sandbox-grid">
+      <div class="field">
+        <label>Petitioner Name</label>
+        <input type="text" id="test_name" value="Jane Marie Doe">
+      </div>
+      <div class="field">
+        <label>Case Number</label>
+        <input type="text" id="test_case" value="1:26-cv-10042">
+      </div>
+      <div class="field">
+        <label>Jurisdiction</label>
+        <select id="test_jurisdiction">
+          <option value="Massachusetts">Massachusetts</option>
+          <option value="Rhode Island">Rhode Island</option>
+          <option value="New Hampshire">New Hampshire</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Type of Habeas Petition</label>
+        <select id="test_petition_type">
+          <option value="GO Class">GO Class</option>
+          <option value="Individual">Individual</option>
+        </select>
+      </div>
+    </div>
+
+    <button type="button" class="btn-primary" id="renderBtn">Render Test Document Preview</button>
+    
+    <!-- Preview Container -->
+    <div id="docx-preview-container"></div>
+  </div>
+
+  <!-- Studio Script -->
+  <script src="js/drafting-studio.js"></script>
+</body>
+</html>

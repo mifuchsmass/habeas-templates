@@ -52,3 +52,178 @@ button.btn-primary:hover {
   border: 1px solid #ccc;
   overflow-x: auto;
 }
+/* ==========================================================================
+   DRAFTING STUDIO & VALIDATION ADDITIONS
+   ========================================================================== */
+
+/* 1. Full-Screen Password Lock Overlay */
+#auth-overlay {
+  position: fixed;
+  inset: 0;
+  background: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+}
+
+.auth-card {
+  background: #ffffff;
+  padding: 32px;
+  border-radius: 10px;
+  max-width: 380px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+.auth-card h3 {
+  margin: 0 0 8px 0;
+  color: #0f172a;
+}
+
+.auth-card p {
+  color: #64748b;
+  font-size: 13px;
+  margin: 0 0 16px 0;
+}
+
+.auth-error {
+  color: #ef4444;
+  font-size: 13px;
+  display: none;
+  margin-top: 10px;
+  font-weight: 600;
+}
+
+/* 2. Drag & Drop Upload Zone */
+.dropzone {
+  border: 2px dashed #94a3b8;
+  background: #f8fafc;
+  padding: 40px 20px;
+  text-align: center;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-bottom: 24px;
+  transition: all 0.2s ease;
+}
+
+.dropzone:hover {
+  border-color: #0056b3;
+  background: #eff6ff;
+}
+
+.dropzone p {
+  margin: 6px 0 0 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+/* 3. Validation Results (Badges & Error Cards) */
+.badge-pass {
+  background: #dcfce7;
+  color: #166534;
+  padding: 14px 18px;
+  border-radius: 6px;
+  font-weight: 600;
+  margin-top: 20px;
+  border: 1px solid #bbf7d0;
+  font-size: 15px;
+}
+
+.error-card {
+  background: #fef2f2;
+  border-left: 4px solid #ef4444;
+  padding: 14px 18px;
+  border-radius: 4px;
+  margin-top: 12px;
+}
+
+.error-card h4 {
+  margin: 0 0 4px 0;
+  color: #991b1b;
+  font-size: 15px;
+}
+
+.error-card p {
+  margin: 0;
+  color: #7f1d1d;
+  font-size: 13px;
+  font-family: monospace;
+}
+
+/* 4. Sandbox Grid & Section */
+.sandbox {
+  margin-top: 32px;
+  border-top: 2px solid #eee;
+  padding-top: 24px;
+  display: none;
+}
+
+.sandbox-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+/* Password Show/Hide Toggle */
+.password-input-wrap {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.password-input-wrap {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.password-input-wrap input {
+  padding-right: 45px;
+}
+
+.btn-toggle-pw {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 0;
+  z-index: 10;
+}
+/* Context Snippet Box */
+.snippet-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 13px;
+  margin: 8px 0;
+  line-height: 1.5;
+  color: #334155;
+  word-break: break-word;
+}
+
+.snippet-highlight {
+  background: #fef08a;
+  color: #854d0e;
+  font-weight: bold;
+  padding: 2px 4px;
+  border-radius: 3px;
+  border: 1px solid #fde047;
+}
+
+/* Actionable Fix Box */
+.fix-box {
+  background: #ffffff;
+  border-left: 3px solid #3b82f6;
+  padding: 8px 12px;
+  border-radius: 0 4px 4px 0;
+  font-size: 13px;
+  color: #1e3a8a;
+  margin-top: 6px;
+  line-height: 1.4;
+}

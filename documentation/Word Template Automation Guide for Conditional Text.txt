@@ -4,7 +4,7 @@
 
 This guide explains how to format Microsoft Word (.docx) templates so our
 habeas petition generator can automatically insert petitioner details, 
-court headers, and conditional legal paragraphs.
+court headers, pronoun variations, and conditional legal paragraphs.
 
 
 1. HOW PLACEHOLDERS WORK (FILLING IN BLANKS)
@@ -26,9 +26,7 @@ Other Common Fields:
 • [Jurisdiction]
 
 Key Features for Legal Drafting:
-• Not Case-Sensitive: [PETITIONER NAME] and [Petitioner Name] will both pull the 
-  same petitioner's name.
-• Capitalization Trick (Smart Caps):
+• Smart Caps:
   - If you type the placeholder in ALL CAPS: [PETITIONER NAME]
     -> The generated document outputs: JANE M. DOE
   - If you type the placeholder normally: [Petitioner Name]
@@ -40,7 +38,66 @@ Key Features for Legal Drafting:
   The engine handles this automatically without breaking.
 
 
-2. CONDITIONAL RULES (CHOOSING WHICH LANGUAGE TO INCLUDE)
+2. AUTOMATIC PRONOUN & GENDER TOGGLING
+--------------------------------------------------------------------------------
+The intake form includes a 1-click pronoun selector (He/Him, She/Her, They/Them, 
+or Petitioner/Noun Only). When a selection is made, the generator automatically 
+derives and populates all grammatical pronoun forms.
+
+A. Recommended Tag Formats
+You can use either intuitive slash tags or direct pronoun tags:
+
+• Subject (lowercase):       [he], [he/she], or [pronoun subject]
+• Subject (Capitalized):     [He], [He/She], or [Pronoun Subject]
+• Subject (ALL CAPS):        [HE] or [HE/SHE]
+• Object (lowercase):        [him], [him/her], or [pronoun object]
+• Object (Capitalized):      [Him], [Him/Her], or [Pronoun Object]
+• Object (ALL CAPS):         [HIM] or [HIM/HER]
+• Possessive (lowercase):    [his], [his/her], or [pronoun possessive]
+• Possessive (Capitalized):  [His], [His/Her], or [Pronoun Possessive]
+• Possessive (ALL CAPS):     [HIS] or [HIS/HER]
+• Standalone Possessive:     [hers], [his/hers]
+• Reflexive:                 [himself], [himself/herself], or [pronoun reflexive]
+
+B. Output Reference Matrix
+
+| Tag Typed in Word | He / Him (Default) | She / Her | They / Them | Petitioner (Noun) |
+| :--- | :--- | :--- | :--- | :--- |
+| [he/she] or [he]   | he                 | she       | they        | Petitioner        |
+| [He/She] or [He]   | He                 | She       | They        | Petitioner        |
+| [HE/SHE] or [HE]   | HE                 | SHE       | THEY        | PETITIONER        |
+| [his/her] or [his] | his                | her       | their       | Petitioner's      |
+| [His/Her] or [His] | His                | Her       | Their       | Petitioner's      |
+| [HIS/HER] or [HIS] | HIS                | HER       | THEIR       | PETITIONER'S      |
+| [him/her] or [him] | him                | her       | them        | Petitioner        |
+| [himself/herself]  | himself            | herself   | themselves  | Petitioner        |
+
+C. Verb Agreement Helpers
+When drafting sentences with verbs that change between singular (he/she) and 
+plural (they), use these agreement tags:
+• [is/are]   -> Resolves to "is" (male/female/petitioner) or "are" (nonbinary)
+• [was/were] -> Resolves to "was" (male/female/petitioner) or "were" (nonbinary)
+• [has/have] -> Resolves to "has" (male/female/petitioner) or "have" (nonbinary)
+
+Example Pleading Sentence:
+  [He/She] [is/are] currently detained in administrative custody. [He/She] 
+  [has/have] remained confined without an individualized bond hearing, violating 
+  [his/her] due process rights.
+
+D. Conditional Pronoun Checks
+You can also write conditional blocks based on the selected pronoun option:
+  [IF Pronouns = "male"]
+  Petitioner uses he/him pronouns.
+  [ELSE IF Pronouns = "female"]
+  Petitioner uses she/her pronouns.
+  [ELSE IF Pronouns = "nonbinary"]
+  Petitioner uses gender-neutral they/them pronouns.
+  [ELSE]
+  Petitioner is referred to exclusively by title as "Petitioner."
+  [END IF]
+
+
+3. CONDITIONAL RULES (CHOOSING WHICH LANGUAGE TO INCLUDE)
 --------------------------------------------------------------------------------
 You can tell Word to show or hide language based on the case type, state, or 
 court selected.
@@ -76,7 +133,7 @@ Example (Court Header):
   [END IF]
 
 
-3. COMBINING CONDITIONS & COMPARISONS
+4. COMBINING CONDITIONS & COMPARISONS
 --------------------------------------------------------------------------------
 You can write natural conditions using everyday legal logic:
 
@@ -87,7 +144,7 @@ You can write natural conditions using everyday legal logic:
 • Numeric Comparisons:      [IF Days In Detention >= 180]
 
 
-4. HOW TO AVOID EXTRA BLANK LINES AND KEEP AUTO-NUMBERING INTACT
+5. HOW TO AVOID EXTRA BLANK LINES AND KEEP AUTO-NUMBERING INTACT
 --------------------------------------------------------------------------------
 To make sure Word's automatic paragraph numbering (1, 2, 3, 4...) stays in 
 consecutive order without leaving orphan numbers or blank lines, follow these 
@@ -117,7 +174,7 @@ Example:
     paragraph automatically becomes paragraph 4.
 
 
-5. NESTING RULES (RULES INSIDE RULES)
+6. NESTING RULES (RULES INSIDE RULES)
 --------------------------------------------------------------------------------
 You can place one rule inside another rule. Just ensure that every [IF] has a 
 corresponding [END IF] at the end:
@@ -133,7 +190,7 @@ corresponding [END IF] at the end:
   [END IF]
 
 
-6. COMPLETE SAMPLE TEMPLATE
+7. COMPLETE SAMPLE TEMPLATE
 --------------------------------------------------------------------------------
 Copy and paste this entire sample directly into your Word template:
 
@@ -152,9 +209,9 @@ _________________________________________  )
 PETITION FOR WRIT OF HABEAS CORPUS
 
 
-1. Petitioner, [Petitioner Name], is an individual residing in [Jurisdiction].
+1. Petitioner, [Petitioner Name], is an individual currently residing in [Jurisdiction]. [He/She] brings this petition on [his/her] own behalf.
 
-2. Respondent is the [Defendant Name] and the warden in the Detention Facility in [Jurisdiction].
+2. At all times relevant hereto, [he/she] [was/were] held in custody by Respondent [Defendant Name]. [He/She] contends that [his/her] continued confinement without an individualized bond hearing violates [his/her] constitutional rights.
 
 3. This action is brought pursuant to [Jurisdiction] law. [IF Jurisdiction = "Massachusetts"]See Mass. Gen. Laws ch. 260, § 2.[ELSE IF Jurisdiction = "Rhode Island"]See R.I. Gen. Laws § 10-9-1.[ELSE]See applicable federal statutory provisions.[END IF]
 
@@ -162,7 +219,7 @@ PETITION FOR WRIT OF HABEAS CORPUS
 4. Petitioner brings this action on behalf of all similarly situated parties as a GO Class proceeding.
 [END IF]
 
-5. [IF Type of Habeas Petition = "GO Class"]Petitioner seeks class-wide declaratory and injunctive relief on behalf of all class members.[ELSE]Petitioner seeks individual habeas corpus relief and an immediate bond hearing.[END IF]
+5. [IF Type of Habeas Petition = "GO Class"]Petitioner seeks class-wide declaratory and injunctive relief on behalf of all class members.[ELSE]Petitioner seeks individual habeas corpus relief and an immediate bond hearing for [himself/herself].[END IF]
 
 
 DATED this _____ day of ____________, 2026.

@@ -2,7 +2,19 @@
  * Universal DOCX Template Engine
  */
 const DocxEngine = {
-  // Helper to sanitize condition strings
+  templateCache: {},
+
+  async loadTemplate(templatePath) {
+    if (this.templateCache[templatePath]) {
+      return this.templateCache[templatePath].slice(0);
+    }
+    const response = await fetch(templatePath);
+    if (!response.ok) throw new Error(`Failed to load template: ${templatePath}`);
+    const buffer = await response.arrayBuffer();
+    this.templateCache[templatePath] = buffer;
+    return buffer.slice(0);
+  },
+
   sanitizeCondition(rawCond) {
     return rawCond.trim()
       .replace(/[\u201C\u201D]/g, '"')
@@ -12,7 +24,6 @@ const DocxEngine = {
       .replace(/\s+=\s+/g, ' == ');
   },
 
-  // 1. Repair split XML and translate [IF ...] / [ELSE IF ...] / [ELSE] / [END IF]
   parseIfTags(xmlContent) {
     xmlContent = xmlContent.replace(/\[[^\]]*?\]/g, match => match.replace(/<[^>]+>/g, ''));
     const tagRegex = /\[\s*(IF\s+[^\]]+|ELSE\s+IF\s+[^\]]+|ELSEIF\s+[^\]]+|ELSE|END\s+IF)\s*\]/gi;
@@ -65,22 +76,19 @@ const DocxEngine = {
     });
   },
 
-  // 2. Main Generation Function
-  async generate({ templatePath, data, outputFilename, selectElementForAliases, showPreview }) {
+  async generate({ templatePath, data, outputFilename, selectElementForAliases, download = false }) {
+    const container = document.getElementById('docx-preview-container');
+
     try {
-      const response = await fetch(templatePath);
-      if (!response.ok) throw new Error(`Failed to load template: ${templatePath}`);
-      const buffer = await response.arrayBuffer();
+      const buffer = await this.loadTemplate(templatePath);
       const zip = new PizZip(buffer);
 
-      // Pre-process XML files
       Object.keys(zip.files).forEach(filename => {
         if (filename.startsWith("word/") && filename.endsWith(".xml")) {
           zip.file(filename, this.parseIfTags(zip.files[filename].asText()));
         }
       });
 
-      // Build Option Aliases if select elements are provided
       const optionAliases = {};
       if (selectElementForAliases) {
         document.querySelectorAll('select option').forEach(opt => {
@@ -94,31 +102,37 @@ const DocxEngine = {
         });
       }
 
-      // Parser configuration
       const customParser = (tag) => {
         const cleanTag = tag.replace(/^[#\/\^]/, '').trim();
         return {
           get(scope) {
             if (!cleanTag) return "";
 
-            // Direct Key match (case-insensitive)
-            const target = cleanTag.toLowerCase();
+            // 1. EXACT CASE MATCH FIRST (Preserves distinct [he] vs [He] vs [HE])
+            if (scope[cleanTag] !== undefined && scope[cleanTag] !== null && scope[cleanTag] !== "") {
+              return scope[cleanTag];
+            }
+
+            // 2. Direct Key Match (case-insensitive fallback)
+            const target = cleanTag.toLowerCase().replace(/[-_\s]/g, '');
             for (const k of Object.keys(scope)) {
-              if (k.toLowerCase() === target) {
+              if (k.toLowerCase().replace(/[-_\s]/g, '') === target) {
                 const val = scope[k];
                 if (val === "" || val === undefined || val === null) {
                   return "*** MISSING DATA ***";
                 }
-                
-                // If tag was typed in [ALL CAPS] in the template, output in ALL CAPS:
                 if (typeof val === "string" && cleanTag === cleanTag.toUpperCase() && /[A-Z]/.test(cleanTag)) {
                   return val.toUpperCase();
                 }
-
                 return val;
               }
             }
-            // Condition evaluation
+
+            const isCondition = /[=!<>]|\b(and|or)\b|&&|\|\|/i.test(cleanTag);
+            if (!isCondition) {
+              return "*** MISSING DATA ***";
+            }
+
             try {
               let expr = cleanTag;
               expr = expr.replace(/(["'])(.*?)\1/g, (m, q, text) => {
@@ -155,20 +169,35 @@ const DocxEngine = {
         mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
       });
 
-      // Render In-Browser Preview only if checkbox is selected
-      const container = document.getElementById('docx-preview-container');
+      if (download === true) {
+        if (typeof saveAs === "function") {
+          saveAs(out, outputFilename || "Document_Output.docx");
+        } else {
+          const link = document.createElement("a");
+          link.href = URL.createObjectURL(out);
+          link.download = outputFilename || "Document_Output.docx";
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+        return;
+      }
+
       if (container) {
-        if (showPreview && window.docx && typeof window.docx.renderAsync === "function") {
+        if (window.docx && typeof window.docx.renderAsync === "function") {
           container.innerHTML = "";
           await window.docx.renderAsync(out, container);
         } else {
-          container.innerHTML = `<p style="color: #888; font-style: italic; padding: 10px;">Preview skipped.</p>`;
+          container.innerHTML = `<p class="preview-error">docx-preview rendering library not loaded.</p>`;
         }
       }
-
-      saveAs(out, outputFilename || "Document_Output.docx");
     } catch (error) {
-      alert("Error generating document: " + error.message);
+      if (container) {
+        container.innerHTML = `<p class="preview-error">Render Error: ${error.message}</p>`;
+      }
+      if (download) {
+        alert("Error generating document: " + error.message);
+      }
       console.error(error);
     }
   }

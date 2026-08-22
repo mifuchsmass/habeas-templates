@@ -47,6 +47,24 @@
     </div>
   </div>
 
+  <!-- Segmented Pronoun Selector (Defaults to He / Him) -->
+  <div class="field">
+    <label>Petitioner Pronouns / Reference Style:</label>
+    <div class="segmented-control">
+      <input type="radio" id="pronoun_male" name="petitioner_pronouns" value="male" checked>
+      <label for="pronoun_male">He / Him</label>
+
+      <input type="radio" id="pronoun_female" name="petitioner_pronouns" value="female">
+      <label for="pronoun_female">She / Her</label>
+
+      <input type="radio" id="pronoun_they" name="petitioner_pronouns" value="nonbinary">
+      <label for="pronoun_they">They / Them</label>
+
+      <input type="radio" id="pronoun_noun" name="petitioner_pronouns" value="petitioner">
+      <label for="pronoun_noun">Petitioner (Noun Only)</label>
+    </div>
+  </div>
+
   <div class="field">
     <label for="defendant">Respondent / Defendant Name:</label>
     <input type="text" id="defendant" value="Department of Homeland Security">
@@ -57,12 +75,10 @@
     <input type="text" id="case_number" value="2026-CV-04321">
   </div>
 
-  <div class="action-row" style="display: flex; align-items: center; gap: 15px; margin-top: 10px;">
-    <button class="btn-primary" style="width: auto; flex-shrink: 0;" onclick="generateHabeasPetition()">Generate &amp; Download Pleading (.docx)</button>
-    <label style="display: inline-flex; align-items: center; gap: 6px; font-weight: normal; margin: 0; font-size: 13px; color: #555;">
-      <input type="checkbox" id="show_preview" style="width: auto; margin: 0;">
-      Select to see preview for viewing small test documents. DO NOT USE for large documents.
-    </label>
+  <!-- Unified Two-Button Action Row -->
+  <div class="sandbox-actions">
+    <button type="button" id="renderBtn" class="btn-render">Render Preview 👁️</button>
+    <button type="button" id="downloadBtn" class="btn-download">Download Compiled DOCX 📥</button>
   </div>
 
   <!-- Document Preview Container -->

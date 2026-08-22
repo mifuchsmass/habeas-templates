@@ -19,7 +19,7 @@
   <!-- 1. Password Lockscreen Overlay -->
   <div id="auth-overlay">
     <div class="auth-card">
-      <div style="font-size: 38px; margin-bottom: 10px;">🔒</div>
+      <div class="icon-large">🔒</div>
       <h3>Drafting Studio Access</h3>
       <p>Enter the volunteer access key to open the testing studio.</p>
       
@@ -35,44 +35,42 @@
 
   <!-- 2. Main Studio Interface -->
   <h1>⚖️ Volunteer Drafting Studio & Logic Inspector</h1>
-  <p style="color: #666; font-size: 14px; margin-bottom: 24px;">
+  <p class="studio-subtitle">
     Drop your draft <b>.docx</b> template below to automatically verify all <code>[IF]</code>, <code>[ELSE IF]</code>, <code>[ELSE]</code>, and <code>[END IF]</code> tags before releasing to immigration attorneys.
   </p>
 
   <!-- Dropzone -->
   <div class="dropzone" id="dropzone">
-    <div style="font-size: 32px; margin-bottom: 6px;">📄</div>
-    <strong style="color: #0056b3;">Drag &amp; Drop your .docx template here</strong>
+    <div class="icon-medium">📄</div>
+    <strong class="dropzone-highlight-text">Drag &amp; Drop your .docx template here</strong>
     <p>or click to browse from your computer</p>
     <input type="file" id="fileInput" accept=".docx" style="display: none;">
   </div>
 
-  <!-- Validation Results (Rich Context Error Cards or Green Badge) -->
+  <!-- Validation Results -->
   <div id="results"></div>
 
-  <!-- 3. Live Test Sandbox (Auto-populated from index.html) -->
+  <!-- 3. Live Test Sandbox (Cloned from index.html) -->
   <div class="sandbox" id="sandbox">
-    <h3 style="margin: 0 0 6px 0;">🧪 Live Test Sandbox</h3>
-    <p style="font-size: 13px; color: #666; margin: 0 0 16px 0;">
-      Form fields below are <b>automatically synchronized with your live intake form</b>. Change values to verify how conditional paragraphs render:
-    </p>
+    <div class="sandbox-header">
+      <h3>🧪 Live Test Sandbox</h3>
+      <p>Form fields below are <b>automatically synchronized with your live intake form</b>. Change values to verify how conditional paragraphs render:</p>
+    </div>
     
-    <!-- Auto-Sync Container (Form fields from index.html are injected here) -->
     <div id="sandbox-form-container">
-      <p style="color: #888; font-style: italic;">Loading real form fields from index.html...</p>
+      <p class="preview-loading">Loading real form fields from index.html...</p>
     </div>
 
-    <!-- Unified Studio Action Buttons -->
-        <div class="sandbox-actions" style="display: flex; gap: 12px; margin-top: 12px; margin-bottom: 16px;">
-        <button type="button" id="renderBtn" style="flex: 1; padding: 10px 16px; font-size: 13px; font-weight: bold; background-color: #0d6efd; color: white; border: none; border-radius: 6px; cursor: pointer;">Render Preview 👁️</button>
-        <button type="button" id="downloadBtn" style="flex: 1; padding: 10px 16px; font-size: 13px; font-weight: bold; background-color: #198754; color: white; border: none; border-radius: 6px; cursor: pointer;">Download Compiled DOCX 📥</button>
-        </div>
-        
-        <!-- Preview Container -->
-        <div id="docx-preview-container"></div>
+    <!-- Actions -->
+    <div class="sandbox-actions">
+      <button type="button" id="renderBtn" class="btn-render">Render Preview 👁️</button>
+      <button type="button" id="downloadBtn" class="btn-download">Download Compiled DOCX 📥</button>
     </div>
+    
+    <!-- Preview Container -->
+    <div id="docx-preview-container"></div>
+  </div>
 
-  <!-- Studio Script -->
   <script src="js/drafting-studio.js"></script>
 </body>
 </html>

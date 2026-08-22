@@ -8,6 +8,101 @@
 const ACCESS_PASSWORD = "Habeas123!";
 let currentArrayBuffer = null;
 
+/**
+ * Derives comprehensive grammatical pronoun tags with distinct casing
+ */
+function getPronounData(choice) {
+  const map = {
+    male: {
+      he: 'he', He: 'He', HE: 'HE',
+      him: 'him', Him: 'Him', HIM: 'HIM',
+      his: 'his', His: 'His', HIS: 'HIS',
+      hers: 'his', Hers: 'His', HERS: 'HIS',
+      himself: 'himself', Himself: 'Himself', HIMSELF: 'HIMSELF',
+      is_are: 'is', was_were: 'was', has_have: 'has'
+    },
+    female: {
+      he: 'she', He: 'She', HE: 'SHE',
+      him: 'her', Him: 'Her', HIM: 'HER',
+      his: 'her', His: 'Her', HIS: 'HER',
+      hers: 'hers', Hers: 'Hers', HERS: 'HERS',
+      himself: 'herself', Himself: 'Herself', HIMSELF: 'HERSELF',
+      is_are: 'is', was_were: 'was', has_have: 'has'
+    },
+    nonbinary: {
+      he: 'they', He: 'They', HE: 'THEY',
+      him: 'them', Him: 'Them', HIM: 'THEM',
+      his: 'their', His: 'Their', HIS: 'THEIR',
+      hers: 'theirs', Hers: 'Theirs', HERS: 'THEIRS',
+      himself: 'themselves', Himself: 'Themselves', HIMSELF: 'THEMSELVES',
+      is_are: 'are', was_were: 'were', has_have: 'have'
+    },
+    petitioner: {
+      he: 'Petitioner', He: 'Petitioner', HE: 'PETITIONER',
+      him: 'Petitioner', Him: 'Petitioner', HIM: 'PETITIONER',
+      his: "Petitioner's", His: "Petitioner's", HIS: "PETITIONER'S",
+      hers: "Petitioner's", Hers: "Petitioner's", HERS: "PETITIONER'S",
+      himself: 'Petitioner', Himself: 'Petitioner', HIMSELF: 'PETITIONER',
+      is_are: 'is', was_were: 'was', has_have: 'has'
+    }
+  };
+
+  const p = map[choice] || map.male;
+
+  return {
+    // Lowercase
+    "he": p.he,
+    "him": p.him,
+    "his": p.his,
+    "hers": p.hers,
+    "himself": p.himself,
+    "he/she": p.he,
+    "his/her": p.his,
+    "him/her": p.him,
+    "himself/herself": p.himself,
+    "his/hers": p.hers,
+    "pronoun subject": p.he,
+    "pronoun object": p.him,
+    "pronoun possessive": p.his,
+    "pronoun reflexive": p.himself,
+
+    // Capitalized / Title Case
+    "He": p.He,
+    "Him": p.Him,
+    "His": p.His,
+    "Hers": p.Hers,
+    "Himself": p.Himself,
+    "He/She": p.He,
+    "His/Her": p.His,
+    "Him/Her": p.Him,
+    "Himself/Herself": p.Himself,
+    "Pronoun Subject": p.He,
+    "Pronoun Object": p.Him,
+    "Pronoun Possessive": p.His,
+    "Pronoun Reflexive": p.Himself,
+
+    // ALL CAPS
+    "HE": p.HE,
+    "HIM": p.HIM,
+    "HIS": p.HIS,
+    "HERS": p.HERS,
+    "HIMSELF": p.HIMSELF,
+    "HE/SHE": p.HE,
+    "HIS/HER": p.HIS,
+    "HIM/HER": p.HIM,
+    "HIMSELF/HERSELF": p.HIMSELF,
+
+    // Verbs
+    "is/are": p.is_are,
+    "was/were": p.was_were,
+    "has/have": p.has_have,
+
+    // Logical conditions
+    "Pronouns": choice,
+    "Gender": choice
+  };
+}
+
 // ============================================================================
 // 2. AUTHENTICATION & UI EVENTS
 // ============================================================================
@@ -20,8 +115,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const dropzone = document.getElementById('dropzone');
   const fileInput = document.getElementById('fileInput');
   const renderBtn = document.getElementById('renderBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
 
-  // Load real form fields from index.html
   loadFormFromIndex();
 
   if (sessionStorage.getItem('drafting_studio_auth') === 'true') {
@@ -58,7 +153,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-const downloadBtn = document.getElementById('downloadBtn');
   if (renderBtn) {
     renderBtn.addEventListener('click', () => runTestRender(false));
   }
@@ -73,19 +167,16 @@ const downloadBtn = document.getElementById('downloadBtn');
 
     dropzone.addEventListener('dragover', (e) => {
       e.preventDefault();
-      dropzone.style.borderColor = '#0056b3';
-      dropzone.style.background = '#eff6ff';
+      dropzone.classList.add('dragover');
     });
 
     dropzone.addEventListener('dragleave', () => {
-      dropzone.style.borderColor = '#94a3b8';
-      dropzone.style.background = '#f8fafc';
+      dropzone.classList.remove('dragover');
     });
 
     dropzone.addEventListener('drop', (e) => {
       e.preventDefault();
-      dropzone.style.borderColor = '#94a3b8';
-      dropzone.style.background = '#f8fafc';
+      dropzone.classList.remove('dragover');
       if (e.dataTransfer.files.length) {
         handleFile(e.dataTransfer.files[0]);
       }
@@ -123,30 +214,17 @@ async function loadFormFromIndex() {
     const formElement = doc.querySelector('form') || doc.querySelector('.form-container') || doc.querySelector('main') || doc.body;
     const clone = formElement.cloneNode(true);
 
-    // Remove buttons and preview containers from index.html
-    clone.querySelectorAll('button, #docx-preview-container, .preview-section, [type="submit"]').forEach(el => el.remove());
-
-    // Dynamically strip out the preview-safeguard checkbox from the clone
-    clone.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-      const parentLabel = cb.closest('label')?.innerText || '';
-      const siblingLabel = cb.nextSibling?.textContent || '';
-      const combinedText = (parentLabel + ' ' + siblingLabel).toLowerCase();
-      
-      if (combinedText.includes('see preview') || combinedText.includes('do not use')) {
-        cb.closest('.field')?.remove() || cb.remove();
-      }
-    });
+    clone.querySelectorAll('button, #docx-preview-container, .preview-section, [type="submit"], h2').forEach(el => el.remove());
 
     container.innerHTML = "";
     container.appendChild(clone);
 
-    // Populate sensible sample defaults into all empty fields
     populateSampleTestValues(container);
 
   } catch (err) {
     console.warn("Auto-sync fallback: Using default fields", err);
     container.innerHTML = `
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <div class="sandbox-grid">
         <div class="field"><label>Petitioner Name</label><input type="text" id="Petitioner Name" value="Jane Marie Doe"></div>
         <div class="field"><label>Case Number</label><input type="text" id="Case Number" value="1:26-cv-10042"></div>
         <div class="field"><label>Jurisdiction</label><select id="Jurisdiction"><option value="Massachusetts">Massachusetts</option><option value="Rhode Island">Rhode Island</option><option value="New Hampshire">New Hampshire</option></select></div>
@@ -164,22 +242,20 @@ function populateSampleTestValues(container) {
       const label = (input.closest('.field')?.querySelector('label')?.innerText || '').toLowerCase();
       const key = id + ' ' + name + ' ' + label;
 
-      if (key.includes('first')) input.value = 'Jane';
-      else if (key.includes('middle')) input.value = 'Marie';
+      if (key.includes('first')) input.value = 'John';
+      else if (key.includes('middle')) input.value = 'David';
       else if (key.includes('last')) input.value = 'Doe';
       else if (key.includes('suffix')) input.value = '';
-      else if (key.includes('petitioner')) input.value = 'Jane Marie Doe';
-      else if (key.includes('defendant') || key.includes('respondent')) input.value = 'Warden, Detention Facility';
-      else if (key.includes('case') || key.includes('docket')) input.value = '1:26-cv-10042';
-      else if (key.includes('facility')) input.value = 'Regional Detention Center';
-      else if (key.includes('days')) input.value = '180';
+      else if (key.includes('petitioner')) input.value = 'John David Doe';
+      else if (key.includes('defendant') || key.includes('respondent')) input.value = 'Department of Homeland Security';
+      else if (key.includes('case') || key.includes('docket')) input.value = '2026-CV-04321';
       else input.value = 'Sample Value';
     }
   });
 }
 
 // ============================================================================
-// 4. TEMPLATE LOGIC SCANNER (Rich Context Edition)
+// 4. TEMPLATE LOGIC SCANNER
 // ============================================================================
 function inspectTemplate(buffer, filename) {
   const resultsDiv = document.getElementById('results');
@@ -232,12 +308,12 @@ function inspectTemplate(buffer, filename) {
 
       if (!isTagSyntaxValid(body)) {
         errors.push({
-            title: "Unbalanced Quotation Marks",
-            tag: rawTag,
-            snippet: snippet,
-            fix: `In Word, search for this tag with <b>Ctrl+F</b> and ensure all quotes are paired. Example: <code>[IF Jurisdiction = "Massachusetts"]</code>.`
-            });
-        }
+          title: "Unbalanced Quotation Marks",
+          tag: rawTag,
+          snippet: snippet,
+          fix: `In Word, search for this tag with <b>Ctrl+F</b> and ensure all quotes are paired. Example: <code>[IF Jurisdiction = "Massachusetts"]</code>.`
+        });
+      }
 
       if (/^IF\s+/i.test(body)) {
         const cond = body.replace(/^IF\s+/i, '').trim();
@@ -340,27 +416,26 @@ function inspectTemplate(buffer, filename) {
         </div>
       `;
       sandboxDiv.style.display = "block";
-      // Auto-render is removed. Previews are held off until a button is clicked.
     } else {
       let errHtml = `
-        <div style="margin-top: 24px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
-          <h3 style="color: #991b1b; margin: 0;">❌ Found ${errors.length} Logic Error(s) in "${filename}":</h3>
-          <span style="font-size: 13px; color: #64748b;">Use <b>Ctrl + F</b> in Word to find the highlighted phrases below</span>
+        <div class="error-summary-header">
+          <h3>❌ Found ${errors.length} Logic Error(s) in "${filename}":</h3>
+          <span class="error-summary-hint">Use <b>Ctrl + F</b> in Word to find the highlighted phrases below</span>
         </div>
       `;
 
       errors.forEach((e, idx) => {
         errHtml += `
           <div class="error-card">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <h4 style="margin: 0; color: #991b1b; font-size: 15px;">⚠️ Error #${idx + 1}: ${e.title}</h4>
-              <code style="background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 12px;">${escapeHtml(e.tag)}</code>
+            <div class="error-card-header">
+              <h4>⚠️ Error #${idx + 1}: ${e.title}</h4>
+              <code class="error-tag-badge">${escapeHtml(e.tag)}</code>
             </div>
             
             <div class="snippet-box">
-              <span style="color: #64748b;">${escapeHtml(e.snippet.before)}</span>
+              <span class="snippet-context">${escapeHtml(e.snippet.before)}</span>
               <mark class="snippet-highlight">${escapeHtml(e.snippet.tag)}</mark>
-              <span style="color: #64748b;">${escapeHtml(e.snippet.after)}</span>
+              <span class="snippet-context">${escapeHtml(e.snippet.after)}</span>
             </div>
 
             <div class="fix-box">
@@ -374,7 +449,12 @@ function inspectTemplate(buffer, filename) {
     }
 
   } catch (err) {
-    resultsDiv.innerHTML = `<div class="error-card"><h4>File Read Error</h4><p>${err.message}</p></div>`;
+    resultsDiv.innerHTML = `
+      <div class="error-card">
+        <h4>File Read Error</h4>
+        <p>${escapeHtml(err.message)}</p>
+      </div>
+    `;
   }
 }
 
@@ -397,29 +477,27 @@ async function runTestRender(shouldDownload) {
   const testData = {};
   const container = document.getElementById('sandbox-form-container');
 
-  // Helper to record all casing variations of keys
   function setFieldVariations(baseKey, val) {
     if (!baseKey) return;
     testData[baseKey] = val;
     testData[baseKey.toLowerCase()] = val;
     testData[baseKey.toUpperCase()] = val;
-    // Replace underscores/hyphens with spaces
     const spaced = baseKey.replace(/[-_]/g, ' ').trim();
     testData[spaced] = val;
     testData[spaced.toLowerCase()] = val;
     testData[spaced.toUpperCase()] = val;
   }
 
-  // 1. Gather all values from the form
   if (container) {
     container.querySelectorAll('input, select, textarea').forEach(el => {
+      if (el.type === 'radio' && !el.checked) return;
+
       const val = (el.type === 'checkbox') ? el.checked : el.value;
       
       if (el.id) setFieldVariations(el.id, val);
       if (el.name) setFieldVariations(el.name, val);
       if (el.getAttribute('data-tag')) setFieldVariations(el.getAttribute('data-tag'), val);
 
-      // Associate by closest label text
       const label = el.closest('.field')?.querySelector('label') || el.previousElementSibling;
       if (label && label.tagName === 'LABEL') {
         const labelText = label.innerText.replace(/[*:]/g, '').trim();
@@ -427,10 +505,9 @@ async function runTestRender(shouldDownload) {
       }
     });
 
-    // 2. Extract First/Middle/Last/Suffix to build Petitioner Name
-    const first = testData['first name'] || testData['first_name'] || testData['firstname'] || testData['petitioner first name'] || '';
-    const middle = testData['middle name'] || testData['middle_name'] || testData['middlename'] || testData['petitioner middle name'] || '';
-    const last = testData['last name'] || testData['last_name'] || testData['lastname'] || testData['petitioner last name'] || '';
+    const first = testData['first name'] || testData['first_name'] || testData['petitioner first name'] || '';
+    const middle = testData['middle name'] || testData['middle_name'] || testData['petitioner middle name'] || '';
+    const last = testData['last name'] || testData['last_name'] || testData['petitioner last name'] || '';
     const suffix = testData['suffix'] || testData['petitioner suffix'] || '';
 
     if (first || last) {
@@ -440,23 +517,27 @@ async function runTestRender(shouldDownload) {
       setFieldVariations('Petitioner Middle Name', middle);
       setFieldVariations('Petitioner Last Name', last);
       setFieldVariations('Petitioner Suffix', suffix);
+      setFieldVariations('Plaintiff Name', fullName);
     }
 
-    // Set Defendant / Case aliases
-    const def = testData['defendant name'] || testData['defendant_name'] || testData['respondent name'] || testData['respondent_name'] || testData['defendant'] || testData['respondent'];
+    // Direct pronoun assignment (preserves exact casing)
+    const pronounChoice = testData['petitioner pronouns'] || testData['petitioner_pronouns'] || testData['pronouns'] || 'male';
+    const pronounData = getPronounData(pronounChoice);
+    Object.assign(testData, pronounData);
+
+    const def = testData['defendant name'] || testData['defendant_name'] || testData['respondent name'] || testData['defendant'];
     if (def) {
       setFieldVariations('Defendant Name', def);
       setFieldVariations('Respondent Name', def);
     }
 
-    const cNum = testData['case number'] || testData['case_number'] || testData['docket number'] || testData['docket_number'] || testData['case'] || testData['docket'];
+    const cNum = testData['case number'] || testData['case_number'] || testData['docket number'] || testData['case'];
     if (cNum) {
       setFieldVariations('Case Number', cNum);
       setFieldVariations('Docket Number', cNum);
     }
   }
 
-  // 3. Build Option Aliases
   const optionAliases = {};
   document.querySelectorAll('#sandbox-form-container select option').forEach(opt => {
     const val = opt.value;
@@ -471,7 +552,6 @@ async function runTestRender(shouldDownload) {
   try {
     const zip = new PizZip(currentArrayBuffer);
     
-    // Parse IF tags using your engine's logic
     Object.keys(zip.files).forEach(filename => {
       if (filename.startsWith("word/") && filename.endsWith(".xml")) {
         let xml = zip.files[filename].asText().replace(/\[[^\]]*?\]/g, match => match.replace(/<[^>]+>/g, ''));
@@ -532,7 +612,12 @@ async function runTestRender(shouldDownload) {
           get(scope) {
             if (!cleanTag) return "";
 
-            // 1. Direct Key Match (case-insensitive & space-flexible)
+            // 1. EXACT CASE MATCH FIRST (Preserves distinct [he] vs [He] vs [HE])
+            if (scope[cleanTag] !== undefined && scope[cleanTag] !== null && scope[cleanTag] !== "") {
+              return scope[cleanTag];
+            }
+
+            // 2. Direct Key Match (case-insensitive fallback)
             const target = cleanTag.toLowerCase().replace(/[-_\s]/g, '');
             for (const k of Object.keys(scope)) {
               if (k.toLowerCase().replace(/[-_\s]/g, '') === target) {
@@ -540,7 +625,6 @@ async function runTestRender(shouldDownload) {
                 if (val === "" || val === undefined || val === null) {
                   return "*** MISSING DATA ***";
                 }
-                // Smart Caps: If tag was typed in [ALL CAPS], output in ALL CAPS
                 if (typeof val === "string" && cleanTag === cleanTag.toUpperCase() && /[A-Z]/.test(cleanTag)) {
                   return val.toUpperCase();
                 }
@@ -548,13 +632,11 @@ async function runTestRender(shouldDownload) {
               }
             }
 
-            // 2. If tag is purely a text placeholder (no logic operators), do NOT evaluate as boolean
             const isCondition = /[=!<>]|\b(and|or)\b|&&|\|\|/i.test(cleanTag);
             if (!isCondition) {
               return "*** MISSING DATA ***";
             }
 
-            // 3. Condition Evaluation
             try {
               let expr = cleanTag;
               expr = expr.replace(/(["'])(.*?)\1/g, (m, q, text) => {
@@ -579,55 +661,37 @@ async function runTestRender(shouldDownload) {
     doc.render(testData);
     const out = doc.getZip().generate({ type: "blob" });
 
-    // If Download Compiled DOCX was clicked, trigger native browser file save (no libraries required)
     if (shouldDownload === true) {
-      var link = document.createElement("a");
+      const link = document.createElement("a");
       link.href = URL.createObjectURL(out);
       link.download = "Drafting_Studio_Output.docx";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      return; // Skip rendering preview to keep focus on download
+      return;
     }
 
     const previewContainer = document.getElementById('docx-preview-container');
     previewContainer.innerHTML = "";
     await docx.renderAsync(out, previewContainer);
   } catch (err) {
-    document.getElementById('docx-preview-container').innerHTML = `<p style="color:red; font-weight:bold; padding: 12px;">Render Error: ${err.message}</p>`;
+    document.getElementById('docx-preview-container').innerHTML = `
+      <p class="preview-error">Render Error: ${escapeHtml(err.message)}</p>
+    `;
   }
 }
-/**
- * Validates if a template tag has balanced quotation marks.
- * Combines logical-only validation and double-quote restrictions to eliminate false positives.
- * 
- * @param {string} tagText The raw text inside the brackets (e.g. "insert state of Petitioner’s residence")
- * @return {boolean} True if the tag is valid (or bypassed), False if it has unbalanced double quotes.
- */
+
 function isTagSyntaxValid(tagText) {
   if (!tagText) return true;
   
-  var upperText = tagText.toUpperCase().trim();
+  const upperText = tagText.toUpperCase().trim();
+  const logicalKeywords = ["IF ", "ELSE", "FOR ", "EACH", "ENDIF", "="];
+  const isLogicalStatement = logicalKeywords.some(keyword => upperText.indexOf(keyword) !== -1);
   
-  // 1. Only run validation on logical commands or comparison tags
-  var logicalKeywords = ["IF ", "ELSE", "FOR ", "EACH", "ENDIF", "="];
-  var isLogicalStatement = logicalKeywords.some(function(keyword) {
-    return upperText.indexOf(keyword) !== -1;
-  });
+  if (!isLogicalStatement) return true;
   
-  // If it is just a descriptive placeholder, bypass the validation check
-  if (!isLogicalStatement) {
-    return true; 
-  }
+  const normalizedText = tagText.replace(/[“”]/g, '"');
+  const doubleQuoteCount = (normalizedText.match(/"/g) || []).length;
   
-  // 2. Restrict validation to double quotes only. Contractions and single apostrophes are ignored.
-  var normalizedText = tagText.replace(/[“”]/g, '"');
-  var doubleQuoteCount = (normalizedText.match(/"/g) || []).length;
-  
-  // If the count of double quotes is odd, the string is unbalanced
-  if (doubleQuoteCount % 2 !== 0) {
-    return false; 
-  }
-  
-  return true; 
+  return doubleQuoteCount % 2 === 0;
 }

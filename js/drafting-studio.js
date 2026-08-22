@@ -1,5 +1,5 @@
 /**
- * Volunteer Drafting Studio & Template Logic Validator (Dynamic Field Discovery Edition)
+ * Volunteer Drafting Studio & Template Logic Validator (Smart Field Sync Edition)
  */
 
 // ============================================================================
@@ -418,7 +418,7 @@ function inspectTemplate(buffer, filename) {
           const input = document.createElement('input');
           input.type = 'text';
           input.setAttribute('data-dynamic-tag', tag);
-          input.value = tag.toLowerCase().includes('date') ? 'May 12, 2024' : (tag.toLowerCase().includes('facility') ? 'Regional Detention Center' : 'Sample Value');
+          input.value = tag.toLowerCase().includes('date') ? 'May 12, 2024' : (tag.toLowerCase().includes('facility') ? 'Regional Detention Center' : (tag.toLowerCase().includes('citizenship') ? 'Guatemala' : (tag.toLowerCase().includes('location') ? 'Nogales, Arizona' : 'Sample Value')));
 
           fieldWrapper.appendChild(label);
           fieldWrapper.appendChild(input);
@@ -489,15 +489,12 @@ async function runTestRender(shouldDownload) {
   const testData = {};
   const container = document.getElementById('sandbox-form-container');
 
+  // Helper to record base key and space variations without polluting uppercase keys
   function setFieldVariations(baseKey, val) {
     if (!baseKey) return;
     testData[baseKey] = val;
-    testData[baseKey.toLowerCase()] = val;
-    testData[baseKey.toUpperCase()] = val;
     const spaced = baseKey.replace(/[-_]/g, ' ').trim();
     testData[spaced] = val;
-    testData[spaced.toLowerCase()] = val;
-    testData[spaced.toUpperCase()] = val;
   }
 
   // 1. Gather Pinned Primary Data
@@ -518,10 +515,10 @@ async function runTestRender(shouldDownload) {
       }
     });
 
-    const first = testData['first name'] || testData['first_name'] || testData['petitioner first name'] || '';
-    const middle = testData['middle name'] || testData['middle_name'] || testData['petitioner middle name'] || '';
-    const last = testData['last name'] || testData['last_name'] || testData['petitioner last name'] || '';
-    const suffix = testData['suffix'] || testData['petitioner suffix'] || '';
+    const first = testData['first name'] || testData['petitioner_first_name'] || testData['petitioner first name'] || '';
+    const middle = testData['middle name'] || testData['petitioner_middle_name'] || testData['petitioner middle name'] || '';
+    const last = testData['last name'] || testData['petitioner_last_name'] || testData['petitioner last name'] || '';
+    const suffix = testData['suffix'] || testData['petitioner_suffix'] || testData['petitioner suffix'] || '';
 
     if (first || last) {
       const fullName = [first, middle, last, suffix].filter(Boolean).join(' ');
@@ -533,17 +530,17 @@ async function runTestRender(shouldDownload) {
       setFieldVariations('Plaintiff Name', fullName);
     }
 
-    const pronounChoice = testData['petitioner pronouns'] || testData['petitioner_pronouns'] || testData['pronouns'] || 'male';
+    const pronounChoice = testData['petitioner_pronouns'] || testData['petitioner pronouns'] || testData['pronouns'] || 'male';
     const pronounData = getPronounData(pronounChoice);
     Object.assign(testData, pronounData);
 
-    const def = testData['defendant name'] || testData['defendant_name'] || testData['respondent name'] || testData['defendant'];
+    const def = testData['defendant'] || testData['defendant name'] || testData['respondent name'];
     if (def) {
       setFieldVariations('Defendant Name', def);
       setFieldVariations('Respondent Name', def);
     }
 
-    const cNum = testData['case number'] || testData['case_number'] || testData['docket number'] || testData['case'];
+    const cNum = testData['case_number'] || testData['case number'] || testData['docket number'];
     if (cNum) {
       setFieldVariations('Case Number', cNum);
       setFieldVariations('Docket Number', cNum);
@@ -633,7 +630,12 @@ async function runTestRender(shouldDownload) {
 
             // 1. EXACT CASE MATCH FIRST
             if (scope[cleanTag] !== undefined && scope[cleanTag] !== null && scope[cleanTag] !== "") {
-              return scope[cleanTag];
+              const val = scope[cleanTag];
+              // Smart Caps: If tag was typed in [ALL CAPS], output in ALL CAPS
+              if (typeof val === "string" && cleanTag === cleanTag.toUpperCase() && /[A-Z]/.test(cleanTag)) {
+                return val.toUpperCase();
+              }
+              return val;
             }
 
             // 2. Direct Key Match (case-insensitive fallback)
@@ -644,6 +646,7 @@ async function runTestRender(shouldDownload) {
                 if (val === "" || val === undefined || val === null) {
                   return "*** MISSING DATA ***";
                 }
+                // Smart Caps: If tag was typed in [ALL CAPS], output in ALL CAPS
                 if (typeof val === "string" && cleanTag === cleanTag.toUpperCase() && /[A-Z]/.test(cleanTag)) {
                   return val.toUpperCase();
                 }

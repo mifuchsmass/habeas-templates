@@ -76,13 +76,6 @@ const DocxEngine = {
     });
   },
 
-  /**
-   * Scans a Word document buffer or XML string and extracts all unique
-   * custom placeholders in their exact document reading order.
-   * Filters out reserved keywords, pronouns, core fields, and practitioner notes.
-   * @param {ArrayBuffer|string} xmlOrBuffer 
-   * @returns {string[]} Ordered list of discovered custom tags
-   */
   extractCustomFields(xmlOrBuffer) {
     let xml = "";
     if (typeof xmlOrBuffer === "string") {
@@ -106,12 +99,9 @@ const DocxEngine = {
     const seen = new Set();
 
     const reservedTags = new Set([
-      // Primary Master Fields
       "jurisdiction", "petition type", "type of habeas petition", "type of habeas petition full",
       "petitioner name", "petitioner first name", "petitioner middle name", "petitioner last name", "petitioner suffix",
       "plaintiff name", "defendant name", "respondent name", "case number", "docket number",
-      
-      // Pronouns & Titles
       "he", "she", "they", "him", "her", "them", "his", "hers", "their", "theirs", "himself", "herself", "themselves",
       "he/she", "his/her", "him/her", "himself/herself", "his/hers", 
       "pronoun subject", "pronoun object", "pronoun possessive", "pronoun reflexive",
@@ -119,8 +109,6 @@ const DocxEngine = {
       "petitioner", "petitioners", "petitioner's", "petitioners'", "petitioner/petitioners", "petitioner's/petitioners'",
       "individual/individuals", "an individual/individuals",
       "is/are", "was/were", "has/have", "brings/bring", "seeks/seek", "contends/contend", "s",
-
-      // Logic Keywords
       "else", "endif", "end if"
     ]);
 
@@ -128,22 +116,10 @@ const DocxEngine = {
     while ((match = tagRegex.exec(cleanDocText)) !== null) {
       const rawTag = match[1].trim();
 
-      // 1. Skip logic statements (IF, ELSE IF, FOR, etc.)
-      if (/^(if\s+|else\s*if\s+|elseif\s+|else$|end\s+if$|for\s+|each\s+)/i.test(rawTag)) {
-        continue;
-      }
+      if (/^(if\s+|else\s*if\s+|elseif\s+|else$|end\s+if$|for\s+|each\s+)/i.test(rawTag)) continue;
+      if (/[=!<>]|\b(and|or)\b|&&|\|\|/i.test(rawTag)) continue;
+      if (/^(note|instruction|instructions|todo|guidance|comment)\b/i.test(rawTag)) continue;
 
-      // 2. Skip expressions with comparison or logical operators
-      if (/[=!<>]|\b(and|or)\b|&&|\|\|/i.test(rawTag)) {
-        continue;
-      }
-
-      // 3. Skip Practitioner notes / instructions
-      if (/^(note|instruction|instructions|todo|guidance|comment)\b/i.test(rawTag)) {
-        continue;
-      }
-
-      // 4. Skip reserved primary fields & pronouns
       const lookupKey = rawTag.toLowerCase().replace(/[-_\s]/g, '');
       let isReserved = false;
       for (const r of reservedTags) {
@@ -154,7 +130,6 @@ const DocxEngine = {
       }
       if (isReserved) continue;
 
-      // 5. If unique, record in exact document order
       if (!seen.has(lookupKey)) {
         seen.add(lookupKey);
         discovered.push(rawTag);
@@ -196,12 +171,17 @@ const DocxEngine = {
           get(scope) {
             if (!cleanTag) return "";
 
-            // 1. EXACT CASE MATCH FIRST (Preserves distinct [he] vs [He] vs [HE])
+            // 1. EXACT CASE MATCH FIRST
             if (scope[cleanTag] !== undefined && scope[cleanTag] !== null && scope[cleanTag] !== "") {
-              return scope[cleanTag];
+              const val = scope[cleanTag];
+              // Smart Caps: If tag was typed in [ALL CAPS], output in ALL CAPS
+              if (typeof val === "string" && cleanTag === cleanTag.toUpperCase() && /[A-Z]/.test(cleanTag)) {
+                return val.toUpperCase();
+              }
+              return val;
             }
 
-            // 2. Direct Key Match (case-insensitive & space-flexible fallback)
+            // 2. Direct Key Match (case-insensitive fallback)
             const target = cleanTag.toLowerCase().replace(/[-_\s]/g, '');
             for (const k of Object.keys(scope)) {
               if (k.toLowerCase().replace(/[-_\s]/g, '') === target) {
@@ -217,13 +197,11 @@ const DocxEngine = {
               }
             }
 
-            // 3. Condition vs Missing Placeholder Check
             const isCondition = /[=!<>]|\b(and|or)\b|&&|\|\|/i.test(cleanTag);
             if (!isCondition) {
               return "*** MISSING DATA ***";
             }
 
-            // 4. Condition Evaluation
             try {
               let expr = cleanTag;
               expr = expr.replace(/(["'])(.*?)\1/g, (m, q, text) => {
@@ -258,7 +236,6 @@ const DocxEngine = {
         mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
       });
 
-      // File Download (Skips preview)
       if (download === true) {
         if (typeof saveAs === "function") {
           saveAs(out, outputFilename || "Document_Output.docx");
@@ -273,7 +250,6 @@ const DocxEngine = {
         return;
       }
 
-      // Render In-Browser Preview
       if (container) {
         if (window.docx && typeof window.docx.renderAsync === "function") {
           container.innerHTML = "";

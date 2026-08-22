@@ -16,63 +16,79 @@
 
   <h2>Habeas Petition Generator</h2>
 
-  <div class="field">
-    <label for="jurisdiction">Jurisdiction:</label>
-    <select id="jurisdiction">
-      <option value="Massachusetts">Massachusetts</option>
-      <option value="Connecticut">Connecticut</option>
-      <option value="Maine">Maine</option>
-      <option value="New Hampshire">New Hampshire</option>
-      <option value="Rhode Island">Rhode Island</option>
-      <option value="Vermont">Vermont</option>
-    </select>
-  </div>
+  <!-- ====================================================================== -->
+  <!-- TIER 1: PINNED PRIMARY MASTER DATA (Always at the top)                 -->
+  <!-- ====================================================================== -->
+  <div class="primary-fields-section">
+    <div class="field">
+      <label for="jurisdiction">Jurisdiction:</label>
+      <select id="jurisdiction">
+        <option value="Massachusetts">Massachusetts</option>
+        <option value="Connecticut">Connecticut</option>
+        <option value="Maine">Maine</option>
+        <option value="New Hampshire">New Hampshire</option>
+        <option value="Rhode Island">Rhode Island</option>
+        <option value="Vermont">Vermont</option>
+      </select>
+    </div>
 
-  <div class="field">
-    <label for="petition_type">Type of Habeas Petition:</label>
-    <select id="petition_type">
-      <option value="GO Class">GO Class Proceeding (GO Class)</option>
-      <option value="Non-GO">Non-GO 1225/1226 Proceeding (Non-GO)</option>
-    </select>
-  </div>
+    <div class="field">
+      <label for="petition_type">Type of Habeas Petition:</label>
+      <select id="petition_type">
+        <option value="GO Class">GO Class Proceeding (GO Class)</option>
+        <option value="Non-GO">Non-GO 1225/1226 Proceeding (Non-GO)</option>
+      </select>
+    </div>
 
-  <!-- Petitioner Name Breakdown Row -->
-  <div class="field">
-    <label>Petitioner Name:</label>
-    <div class="name-grid">
-      <input type="text" id="petitioner_first_name" placeholder="First Name" value="Jane">
-      <input type="text" id="petitioner_middle_name" placeholder="Middle" value="M.">
-      <input type="text" id="petitioner_last_name" placeholder="Last Name" value="Doe">
-      <input type="text" id="petitioner_suffix" placeholder="Suffix (Jr., III)" value="">
+    <!-- Petitioner Name Breakdown Row -->
+    <div class="field">
+      <label>Petitioner Name:</label>
+      <div class="name-grid">
+        <input type="text" id="petitioner_first_name" placeholder="First Name" value="Jane">
+        <input type="text" id="petitioner_middle_name" placeholder="Middle" value="M.">
+        <input type="text" id="petitioner_last_name" placeholder="Last Name" value="Doe">
+        <input type="text" id="petitioner_suffix" placeholder="Suffix (Jr., III)" value="">
+      </div>
+    </div>
+
+    <!-- Segmented Pronoun Selector -->
+    <div class="field">
+      <label>Petitioner Pronouns &amp; Reference Style:</label>
+      <div class="segmented-control">
+        <input type="radio" id="pronoun_male" name="petitioner_pronouns" value="male" checked>
+        <label for="pronoun_male">He / Him</label>
+
+        <input type="radio" id="pronoun_female" name="petitioner_pronouns" value="female">
+        <label for="pronoun_female">She / Her</label>
+
+        <input type="radio" id="pronoun_they" name="petitioner_pronouns" value="nonbinary">
+        <label for="pronoun_they">They / Them</label>
+
+        <input type="radio" id="pronoun_noun" name="petitioner_pronouns" value="petitioner">
+        <label for="pronoun_noun">Petitioner (Noun Only)</label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="defendant">Respondent / Defendant Name:</label>
+      <input type="text" id="defendant" value="Department of Homeland Security">
+    </div>
+
+    <div class="field">
+      <label for="case_number">Case Number:</label>
+      <input type="text" id="case_number" value="2026-CV-04321">
     </div>
   </div>
 
-  <!-- Clean 4-Button Pronoun Selector -->
-  <div class="field">
-    <label>Petitioner Pronouns &amp; Reference Style:</label>
-    <div class="segmented-control">
-      <input type="radio" id="pronoun_male" name="petitioner_pronouns" value="male" checked>
-      <label for="pronoun_male">He / Him</label>
-
-      <input type="radio" id="pronoun_female" name="petitioner_pronouns" value="female">
-      <label for="pronoun_female">She / Her</label>
-
-      <input type="radio" id="pronoun_they" name="petitioner_pronouns" value="nonbinary">
-      <label for="pronoun_they">They / Them</label>
-
-      <input type="radio" id="pronoun_noun" name="petitioner_pronouns" value="petitioner">
-      <label for="pronoun_noun">Petitioner (Noun Only)</label>
+  <!-- ====================================================================== -->
+  <!-- TIER 2: DISCOVERED CASE FACTS (Auto-populated from template in order)  -->
+  <!-- ====================================================================== -->
+  <div id="dynamic-fields-section" class="dynamic-fields-section" style="display: none;">
+    <div class="dynamic-fields-header">
+      <h3>📝 Case Facts &amp; Background Details</h3>
+      <span class="dynamic-badge">Auto-Discovered</span>
     </div>
-  </div>
-
-  <div class="field">
-    <label for="defendant">Respondent / Defendant Name:</label>
-    <input type="text" id="defendant" value="Department of Homeland Security">
-  </div>
-
-  <div class="field">
-    <label for="case_number">Case Number:</label>
-    <input type="text" id="case_number" value="2026-CV-04321">
+    <div id="dynamic-fields-container" class="dynamic-fields-grid"></div>
   </div>
 
   <!-- Unified Two-Button Action Row -->

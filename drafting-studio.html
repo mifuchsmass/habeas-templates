@@ -50,15 +50,25 @@
   <!-- Validation Results -->
   <div id="results"></div>
 
-  <!-- 3. Live Test Sandbox (Auto-synchronized from index.html) -->
+  <!-- 3. Live Test Sandbox (Auto-synchronized with Pinned & Dynamic Fields) -->
   <div class="sandbox" id="sandbox">
     <div class="sandbox-header">
       <h3>🧪 Live Test Sandbox</h3>
-      <p>Form fields below are <b>automatically synchronized with your live intake form</b>. Change values to verify how conditional paragraphs render:</p>
+      <p>Primary master fields and discovered template fields are <b>automatically synchronized</b>. Change values to verify conditional rendering:</p>
     </div>
     
+    <!-- Pinned Primary Form Fields Container (Cloned from index.html) -->
     <div id="sandbox-form-container">
-      <p class="preview-loading">Loading real form fields from index.html...</p>
+      <p class="preview-loading">Loading primary form fields...</p>
+    </div>
+
+    <!-- Discovered Dynamic Fields Section -->
+    <div id="sandbox-dynamic-section" class="dynamic-fields-section" style="display: none;">
+      <div class="dynamic-fields-header">
+        <h3>📝 Case Facts &amp; Background Details</h3>
+        <span class="dynamic-badge">Auto-Discovered</span>
+      </div>
+      <div id="sandbox-dynamic-container" class="dynamic-fields-grid"></div>
     </div>
 
     <!-- Actions -->
@@ -71,6 +81,8 @@
     <div id="docx-preview-container"></div>
   </div>
 
+  <!-- Engine and Studio Scripts -->
+  <script src="js/docx-engine.js"></script>
   <script src="js/drafting-studio.js"></script>
 </body>
 </html>

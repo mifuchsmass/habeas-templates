@@ -1,5 +1,5 @@
 /**
- * Volunteer Drafting Studio & Template Logic Validator (Smart Field Sync Edition)
+ * Volunteer Drafting Studio & Template Logic Validator (Dynamic Field Discovery Edition)
  */
 
 // ============================================================================
@@ -124,7 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const renderBtn = document.getElementById('renderBtn');
   const downloadBtn = document.getElementById('downloadBtn');
 
-  loadFormFromIndex();
+  loadPrimaryFormFromIndex();
 
   if (sessionStorage.getItem('drafting_studio_auth') === 'true') {
     if (overlay) overlay.style.display = 'none';
@@ -205,9 +205,9 @@ function handleFile(file) {
 }
 
 // ============================================================================
-// 3. AUTO-SYNC: CLONE FORM FROM index.html
+// 3. AUTO-SYNC: CLONE PINNED PRIMARY FORM FROM index.html
 // ============================================================================
-async function loadFormFromIndex() {
+async function loadPrimaryFormFromIndex() {
   const container = document.getElementById('sandbox-form-container');
   if (!container) return;
 
@@ -218,57 +218,38 @@ async function loadFormFromIndex() {
     const htmlText = await res.text();
     const doc = new DOMParser().parseFromString(htmlText, 'text/html');
 
-    const formElement = doc.querySelector('form') || doc.querySelector('.form-container') || doc.querySelector('main') || doc.body;
-    const clone = formElement.cloneNode(true);
+    const primarySection = doc.querySelector('.primary-fields-section') || doc.body;
+    const clone = primarySection.cloneNode(true);
 
-    clone.querySelectorAll('button, #docx-preview-container, .preview-section, [type="submit"], h2').forEach(el => el.remove());
+    clone.querySelectorAll('button, #docx-preview-container, .preview-section, [type="submit"], h2, #dynamic-fields-section').forEach(el => el.remove());
 
     container.innerHTML = "";
     container.appendChild(clone);
-
-    populateSampleTestValues(container);
-
   } catch (err) {
-    console.warn("Auto-sync fallback: Using default fields", err);
+    console.warn("Auto-sync fallback: Using default primary fields", err);
     container.innerHTML = `
       <div class="sandbox-grid">
         <div class="field"><label>Petitioner Name</label><input type="text" id="Petitioner Name" value="Jane Marie Doe"></div>
-        <div class="field"><label>Case Number</label><input type="text" id="Case Number" value="1:26-cv-10042"></div>
-        <div class="field"><label>Jurisdiction</label><select id="Jurisdiction"><option value="Massachusetts">Massachusetts</option><option value="Rhode Island">Rhode Island</option><option value="New Hampshire">New Hampshire</option></select></div>
-        <div class="field"><label>Type of Habeas Petition</label><select id="Type of Habeas Petition"><option value="GO Class">GO Class</option><option value="Individual">Individual</option></select></div>
+        <div class="field"><label>Case Number</label><input type="text" id="Case Number" value="2026-CV-04321"></div>
+        <div class="field"><label>Jurisdiction</label><select id="Jurisdiction"><option value="Massachusetts">Massachusetts</option><option value="Rhode Island">Rhode Island</option></select></div>
+        <div class="field"><label>Type of Habeas Petition</label><select id="Type of Habeas Petition"><option value="GO Class">GO Class</option><option value="Non-GO">Non-GO</option></select></div>
       </div>
     `;
   }
 }
 
-function populateSampleTestValues(container) {
-  container.querySelectorAll('input[type="text"], input:not([type]), textarea').forEach(input => {
-    if (!input.value) {
-      const id = (input.id || '').toLowerCase();
-      const name = (input.name || '').toLowerCase();
-      const label = (input.closest('.field')?.querySelector('label')?.innerText || '').toLowerCase();
-      const key = id + ' ' + name + ' ' + label;
-
-      if (key.includes('first')) input.value = 'John';
-      else if (key.includes('middle')) input.value = 'David';
-      else if (key.includes('last')) input.value = 'Doe';
-      else if (key.includes('suffix')) input.value = '';
-      else if (key.includes('petitioner')) input.value = 'John David Doe';
-      else if (key.includes('defendant') || key.includes('respondent')) input.value = 'Department of Homeland Security';
-      else if (key.includes('case') || key.includes('docket')) input.value = '2026-CV-04321';
-      else input.value = 'Sample Value';
-    }
-  });
-}
-
 // ============================================================================
-// 4. TEMPLATE LOGIC SCANNER
+// 4. TEMPLATE LOGIC SCANNER & DYNAMIC FIELD DISCOVERY
 // ============================================================================
 function inspectTemplate(buffer, filename) {
   const resultsDiv = document.getElementById('results');
   const sandboxDiv = document.getElementById('sandbox');
+  const dynamicSection = document.getElementById('sandbox-dynamic-section');
+  const dynamicContainer = document.getElementById('sandbox-dynamic-container');
+
   resultsDiv.innerHTML = "";
   sandboxDiv.style.display = "none";
+  if (dynamicSection) dynamicSection.style.display = "none";
 
   try {
     const zip = new PizZip(buffer);
@@ -422,6 +403,30 @@ function inspectTemplate(buffer, filename) {
           ✅ <b>Ready for Production:</b> "${filename}" passed all logic and tag validations with 0 errors!
         </div>
       `;
+
+      // Discover and inject dynamic custom fields
+      const discovered = DocxEngine.extractCustomFields(xmlContent);
+      if (discovered.length > 0 && dynamicContainer && dynamicSection) {
+        dynamicContainer.innerHTML = "";
+        discovered.forEach(tag => {
+          const fieldWrapper = document.createElement('div');
+          fieldWrapper.className = 'field';
+
+          const label = document.createElement('label');
+          label.textContent = tag + ':';
+
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.setAttribute('data-dynamic-tag', tag);
+          input.value = tag.toLowerCase().includes('date') ? 'May 12, 2024' : (tag.toLowerCase().includes('facility') ? 'Regional Detention Center' : 'Sample Value');
+
+          fieldWrapper.appendChild(label);
+          fieldWrapper.appendChild(input);
+          dynamicContainer.appendChild(fieldWrapper);
+        });
+        dynamicSection.style.display = "block";
+      }
+
       sandboxDiv.style.display = "block";
     } else {
       let errHtml = `
@@ -495,6 +500,7 @@ async function runTestRender(shouldDownload) {
     testData[spaced.toUpperCase()] = val;
   }
 
+  // 1. Gather Pinned Primary Data
   if (container) {
     container.querySelectorAll('input, select, textarea').forEach(el => {
       if (el.type === 'radio' && !el.checked) return;
@@ -527,7 +533,6 @@ async function runTestRender(shouldDownload) {
       setFieldVariations('Plaintiff Name', fullName);
     }
 
-    // Direct pronoun assignment (preserves exact casing)
     const pronounChoice = testData['petitioner pronouns'] || testData['petitioner_pronouns'] || testData['pronouns'] || 'male';
     const pronounData = getPronounData(pronounChoice);
     Object.assign(testData, pronounData);
@@ -544,6 +549,13 @@ async function runTestRender(shouldDownload) {
       setFieldVariations('Docket Number', cNum);
     }
   }
+
+  // 2. Gather Discovered Dynamic Fields
+  document.querySelectorAll('#sandbox-dynamic-container input[data-dynamic-tag]').forEach(input => {
+    const tag = input.getAttribute('data-dynamic-tag');
+    const val = input.value.trim();
+    setFieldVariations(tag, val);
+  });
 
   const optionAliases = {};
   document.querySelectorAll('#sandbox-form-container select option').forEach(opt => {

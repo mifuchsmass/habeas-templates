@@ -76,6 +76,94 @@ const DocxEngine = {
     });
   },
 
+  /**
+   * Scans a Word document buffer or XML string and extracts all unique
+   * custom placeholders in their exact document reading order.
+   * Filters out reserved keywords, pronouns, core fields, and practitioner notes.
+   * @param {ArrayBuffer|string} xmlOrBuffer 
+   * @returns {string[]} Ordered list of discovered custom tags
+   */
+  extractCustomFields(xmlOrBuffer) {
+    let xml = "";
+    if (typeof xmlOrBuffer === "string") {
+      xml = xmlOrBuffer;
+    } else {
+      const zip = new PizZip(xmlOrBuffer);
+      Object.keys(zip.files).forEach(name => {
+        if (name.startsWith("word/") && name.endsWith(".xml")) {
+          xml += zip.files[name].asText() + "\n";
+        }
+      });
+    }
+
+    const cleanDocText = xml
+      .replace(/\[[^\]]*?\]/g, match => match.replace(/<[^>]+>/g, ''))
+      .replace(/<[^>]+>/g, '')
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&apos;/g, "'");
+
+    const tagRegex = /\[\s*([^\]]+?)\s*\]/g;
+    const discovered = [];
+    const seen = new Set();
+
+    const reservedTags = new Set([
+      // Primary Master Fields
+      "jurisdiction", "petition type", "type of habeas petition", "type of habeas petition full",
+      "petitioner name", "petitioner first name", "petitioner middle name", "petitioner last name", "petitioner suffix",
+      "plaintiff name", "defendant name", "respondent name", "case number", "docket number",
+      
+      // Pronouns & Titles
+      "he", "she", "they", "him", "her", "them", "his", "hers", "their", "theirs", "himself", "herself", "themselves",
+      "he/she", "his/her", "him/her", "himself/herself", "his/hers", 
+      "pronoun subject", "pronoun object", "pronoun possessive", "pronoun reflexive",
+      "pronouns", "gender", "is plural",
+      "petitioner", "petitioners", "petitioner's", "petitioners'", "petitioner/petitioners", "petitioner's/petitioners'",
+      "individual/individuals", "an individual/individuals",
+      "is/are", "was/were", "has/have", "brings/bring", "seeks/seek", "contends/contend", "s",
+
+      // Logic Keywords
+      "else", "endif", "end if"
+    ]);
+
+    let match;
+    while ((match = tagRegex.exec(cleanDocText)) !== null) {
+      const rawTag = match[1].trim();
+
+      // 1. Skip logic statements (IF, ELSE IF, FOR, etc.)
+      if (/^(if\s+|else\s*if\s+|elseif\s+|else$|end\s+if$|for\s+|each\s+)/i.test(rawTag)) {
+        continue;
+      }
+
+      // 2. Skip expressions with comparison or logical operators
+      if (/[=!<>]|\b(and|or)\b|&&|\|\|/i.test(rawTag)) {
+        continue;
+      }
+
+      // 3. Skip Practitioner notes / instructions
+      if (/^(note|instruction|instructions|todo|guidance|comment)\b/i.test(rawTag)) {
+        continue;
+      }
+
+      // 4. Skip reserved primary fields & pronouns
+      const lookupKey = rawTag.toLowerCase().replace(/[-_\s]/g, '');
+      let isReserved = false;
+      for (const r of reservedTags) {
+        if (r.replace(/[-_\s]/g, '') === lookupKey) {
+          isReserved = true;
+          break;
+        }
+      }
+      if (isReserved) continue;
+
+      // 5. If unique, record in exact document order
+      if (!seen.has(lookupKey)) {
+        seen.add(lookupKey);
+        discovered.push(rawTag);
+      }
+    }
+
+    return discovered;
+  },
+
   async generate({ templatePath, data, outputFilename, selectElementForAliases, download = false }) {
     const container = document.getElementById('docx-preview-container');
 
@@ -108,12 +196,12 @@ const DocxEngine = {
           get(scope) {
             if (!cleanTag) return "";
 
-            // 1. EXACT CASE MATCH FIRST
+            // 1. EXACT CASE MATCH FIRST (Preserves distinct [he] vs [He] vs [HE])
             if (scope[cleanTag] !== undefined && scope[cleanTag] !== null && scope[cleanTag] !== "") {
               return scope[cleanTag];
             }
 
-            // 2. Direct Key Match (case-insensitive fallback)
+            // 2. Direct Key Match (case-insensitive & space-flexible fallback)
             const target = cleanTag.toLowerCase().replace(/[-_\s]/g, '');
             for (const k of Object.keys(scope)) {
               if (k.toLowerCase().replace(/[-_\s]/g, '') === target) {
@@ -121,6 +209,7 @@ const DocxEngine = {
                 if (val === "" || val === undefined || val === null) {
                   return "*** MISSING DATA ***";
                 }
+                // Smart Caps: If tag was typed in [ALL CAPS], output in ALL CAPS
                 if (typeof val === "string" && cleanTag === cleanTag.toUpperCase() && /[A-Z]/.test(cleanTag)) {
                   return val.toUpperCase();
                 }
@@ -144,12 +233,10 @@ const DocxEngine = {
 
               Object.keys(scope).sort((a, b) => b.length - a.length).forEach(varName => {
                 const escaped = varName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const regex = new RegExp(`\\b${escaped}\\b`, 'gi');
-                expr = expr.replace(regex, `scope["${varName}"]`);
+                expr = expr.replace(new RegExp('\\b' + escaped + '\\b', 'gi'), 'scope["' + varName + '"]');
               });
 
-              const fn = new Function("scope", `return Boolean(${expr});`);
-              return fn(scope);
+              return new Function("scope", `return Boolean(${expr});`)(scope);
             } catch (e) {
               return false;
             }

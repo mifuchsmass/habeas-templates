@@ -166,9 +166,14 @@ function getFormData() {
   const firstName = document.getElementById('petitioner_first_name')?.value.trim() || '';
   const middleName = document.getElementById('petitioner_middle_name')?.value.trim() || '';
   const lastName = document.getElementById('petitioner_last_name')?.value.trim() || '';
-  const suffix = document.getElementById('petitioner_suffix')?.value.trim() || '';
+  const rawSuffix = document.getElementById('petitioner_suffix')?.value.trim() || '';
 
-  const fullName = [firstName, middleName, lastName, suffix].filter(Boolean).join(' ');
+  // Clean suffix and format without awkward space before comma
+  const cleanSuffix = rawSuffix.replace(/^[,\s]+/, '').trim();
+  const baseName = [firstName, middleName, lastName].filter(Boolean).join(' ');
+  const fullName = cleanSuffix 
+    ? (baseName ? `${baseName}, ${cleanSuffix}` : cleanSuffix)
+    : baseName;
 
   const selectedPronoun = document.querySelector('input[name="petitioner_pronouns"]:checked')?.value || 'male';
   const pronounData = getPronounData(selectedPronoun);
@@ -183,7 +188,7 @@ function getFormData() {
     "Petitioner First Name": firstName,
     "Petitioner Middle Name": middleName,
     "Petitioner Last Name": lastName,
-    "Petitioner Suffix": suffix,
+    "Petitioner Suffix": cleanSuffix,
     "Plaintiff Name": fullName,
 
     "Defendant Name": document.getElementById('defendant')?.value || '',

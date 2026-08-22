@@ -299,11 +299,12 @@ window.showToast = function(message, type = 'success', duration = 3000) {
 // ============================================================================
 window.FormStorage = {
   save(prefix = 'Habeas_Data') {
-    // 1. Extract Name Parts (Supports both index.html and Studio Sandbox)
+  // 1. Extract Name Parts (Supports both index.html and Studio Sandbox)
     let first = document.querySelector('#petitioner_first_name')?.value.trim() || '';
     let middle = document.querySelector('#petitioner_middle_name')?.value.trim() || '';
     let last = document.querySelector('#petitioner_last_name')?.value.trim() || '';
-    let suffix = document.querySelector('#petitioner_suffix')?.value.trim() || '';
+    let rawSuffix = document.querySelector('#petitioner_suffix')?.value.trim() || '';
+    let cleanSuffix = rawSuffix.replace(/^[,\s]+/, '').trim();
 
     // Fallback if full name is in a single field
     if (!first && !last) {
@@ -312,13 +313,14 @@ window.FormStorage = {
       if (fullInput) first = fullInput.value.trim();
     }
 
-    const cleanName = [first, middle, last, suffix]
+    const baseName = [first, middle, last].filter(Boolean).join('_');
+    const cleanName = [baseName, cleanSuffix]
       .filter(Boolean)
       .join('_')
       .replace(/[^a-zA-Z0-9_-]/g, '_');
 
     const filename = `${prefix}_${cleanName || 'Draft'}.json`;
-
+    
     // 2. Gather All Form Data
     const data = {};
     document.querySelectorAll('input, select, textarea').forEach(el => {

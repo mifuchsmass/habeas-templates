@@ -530,15 +530,20 @@ async function runTestRender(shouldDownload) {
     const first = testData['first name'] || testData['petitioner_first_name'] || testData['petitioner first name'] || '';
     const middle = testData['middle name'] || testData['petitioner_middle_name'] || testData['petitioner middle name'] || '';
     const last = testData['last name'] || testData['petitioner_last_name'] || testData['petitioner last name'] || '';
-    const suffix = testData['suffix'] || testData['petitioner_suffix'] || testData['petitioner suffix'] || '';
+    const rawSuffix = testData['suffix'] || testData['petitioner_suffix'] || testData['petitioner suffix'] || '';
+
+    const cleanSuffix = rawSuffix.replace(/^[,\s]+/, '').trim();
+    const baseName = [first, middle, last].filter(Boolean).join(' ');
+    const fullName = cleanSuffix 
+      ? (baseName ? `${baseName}, ${cleanSuffix}` : cleanSuffix)
+      : baseName;
 
     if (first || last) {
-      const fullName = [first, middle, last, suffix].filter(Boolean).join(' ');
       setFieldVariations('Petitioner Name', fullName);
       setFieldVariations('Petitioner First Name', first);
       setFieldVariations('Petitioner Middle Name', middle);
       setFieldVariations('Petitioner Last Name', last);
-      setFieldVariations('Petitioner Suffix', suffix);
+      setFieldVariations('Petitioner Suffix', cleanSuffix);
       setFieldVariations('Plaintiff Name', fullName);
     }
 

@@ -58,8 +58,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+const downloadBtn = document.getElementById('downloadBtn');
   if (renderBtn) {
-    renderBtn.addEventListener('click', runTestRender);
+    renderBtn.addEventListener('click', () => runTestRender(false));
+  }
+  if (downloadBtn) {
+    downloadBtn.addEventListener('click', () => runTestRender(true));
   }
 
   // Dropzone Handlers
@@ -121,6 +125,17 @@ async function loadFormFromIndex() {
 
     // Remove buttons and preview containers from index.html
     clone.querySelectorAll('button, #docx-preview-container, .preview-section, [type="submit"]').forEach(el => el.remove());
+
+    // Dynamically strip out the preview-safeguard checkbox from the clone
+    clone.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      const parentLabel = cb.closest('label')?.innerText || '';
+      const siblingLabel = cb.nextSibling?.textContent || '';
+      const combinedText = (parentLabel + ' ' + siblingLabel).toLowerCase();
+      
+      if (combinedText.includes('see preview') || combinedText.includes('do not use')) {
+        cb.closest('.field')?.remove() || cb.remove();
+      }
+    });
 
     container.innerHTML = "";
     container.appendChild(clone);
@@ -215,16 +230,14 @@ function inspectTemplate(buffer, filename) {
       const matchIndex = match.index;
       const snippet = getSnippet(cleanDocText, matchIndex, rawTag.length);
 
-      const dbl = (body.match(/["\u201C\u201D]/g) || []).length;
-      const sgl = (body.match(/['\u2018\u2019]/g) || []).length;
-      if (dbl % 2 !== 0 || sgl % 2 !== 0) {
+      if (!isTagSyntaxValid(body)) {
         errors.push({
-          title: "Unbalanced Quotation Marks",
-          tag: rawTag,
-          snippet: snippet,
-          fix: `In Word, search for this tag with <b>Ctrl+F</b> and ensure all quotes are paired. Example: <code>[IF Jurisdiction = "Massachusetts"]</code>.`
-        });
-      }
+            title: "Unbalanced Quotation Marks",
+            tag: rawTag,
+            snippet: snippet,
+            fix: `In Word, search for this tag with <b>Ctrl+F</b> and ensure all quotes are paired. Example: <code>[IF Jurisdiction = "Massachusetts"]</code>.`
+            });
+        }
 
       if (/^IF\s+/i.test(body)) {
         const cond = body.replace(/^IF\s+/i, '').trim();
@@ -327,7 +340,7 @@ function inspectTemplate(buffer, filename) {
         </div>
       `;
       sandboxDiv.style.display = "block";
-      runTestRender();
+      // Auto-render is removed. Previews are held off until a button is clicked.
     } else {
       let errHtml = `
         <div style="margin-top: 24px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
@@ -378,7 +391,7 @@ function escapeHtml(text) {
 // ============================================================================
 // 5. LIVE TEST SANDBOX RENDERER
 // ============================================================================
-async function runTestRender() {
+async function runTestRender(shouldDownload) {
   if (!currentArrayBuffer) return;
   
   const testData = {};
@@ -565,10 +578,56 @@ async function runTestRender() {
 
     doc.render(testData);
     const out = doc.getZip().generate({ type: "blob" });
+
+    // If Download Compiled DOCX was clicked, trigger native browser file save (no libraries required)
+    if (shouldDownload === true) {
+      var link = document.createElement("a");
+      link.href = URL.createObjectURL(out);
+      link.download = "Drafting_Studio_Output.docx";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return; // Skip rendering preview to keep focus on download
+    }
+
     const previewContainer = document.getElementById('docx-preview-container');
     previewContainer.innerHTML = "";
     await docx.renderAsync(out, previewContainer);
   } catch (err) {
     document.getElementById('docx-preview-container').innerHTML = `<p style="color:red; font-weight:bold; padding: 12px;">Render Error: ${err.message}</p>`;
   }
-}s
+}
+/**
+ * Validates if a template tag has balanced quotation marks.
+ * Combines logical-only validation and double-quote restrictions to eliminate false positives.
+ * 
+ * @param {string} tagText The raw text inside the brackets (e.g. "insert state of Petitioner’s residence")
+ * @return {boolean} True if the tag is valid (or bypassed), False if it has unbalanced double quotes.
+ */
+function isTagSyntaxValid(tagText) {
+  if (!tagText) return true;
+  
+  var upperText = tagText.toUpperCase().trim();
+  
+  // 1. Only run validation on logical commands or comparison tags
+  var logicalKeywords = ["IF ", "ELSE", "FOR ", "EACH", "ENDIF", "="];
+  var isLogicalStatement = logicalKeywords.some(function(keyword) {
+    return upperText.indexOf(keyword) !== -1;
+  });
+  
+  // If it is just a descriptive placeholder, bypass the validation check
+  if (!isLogicalStatement) {
+    return true; 
+  }
+  
+  // 2. Restrict validation to double quotes only. Contractions and single apostrophes are ignored.
+  var normalizedText = tagText.replace(/[“”]/g, '"');
+  var doubleQuoteCount = (normalizedText.match(/"/g) || []).length;
+  
+  // If the count of double quotes is odd, the string is unbalanced
+  if (doubleQuoteCount % 2 !== 0) {
+    return false; 
+  }
+  
+  return true; 
+}

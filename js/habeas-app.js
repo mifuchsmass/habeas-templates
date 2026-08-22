@@ -3,70 +3,117 @@
  */
 
 /**
- * Derives comprehensive grammatical pronoun tags
+ * Derives comprehensive grammatical pronoun and party tags
  * @param {string} choice - "male", "female", "nonbinary", or "petitioner"
- * @returns {Object} Pronoun tag mappings
+ * @returns {Object} Tag mappings
  */
 function getPronounData(choice) {
   const map = {
     male: {
-      he: 'he', He: 'He',
-      him: 'him', Him: 'Him',
-      his: 'his', His: 'His',
-      hers: 'his', Hers: 'His',
-      himself: 'himself', Himself: 'Himself',
-      is_are: 'is', was_were: 'was', has_have: 'has'
+      he: 'he', He: 'He', HE: 'HE',
+      him: 'him', Him: 'Him', HIM: 'HIM',
+      his: 'his', His: 'His', HIS: 'HIS',
+      hers: 'his', Hers: 'His', HERS: 'HIS',
+      himself: 'himself', Himself: 'Himself', HIMSELF: 'HIMSELF',
+      petitioner: 'Petitioner', petitioner_lower: 'petitioner', PETITIONER: 'PETITIONER',
+      petitioner_possessive: "Petitioner's", PETITIONER_POSSESSIVE: "PETITIONER'S",
+      individual: 'an individual',
+      is_are: 'is', was_were: 'was', has_have: 'has',
+      s_suffix: 's',
+      brings_bring: 'brings', seeks_seek: 'seeks', contends_contend: 'contends'
     },
     female: {
-      he: 'she', He: 'She',
-      him: 'her', Him: 'Her',
-      his: 'her', His: 'Her',
-      hers: 'hers', Hers: 'Hers',
-      himself: 'herself', Himself: 'Herself',
-      is_are: 'is', was_were: 'was', has_have: 'has'
+      he: 'she', He: 'She', HE: 'SHE',
+      him: 'her', Him: 'Her', HIM: 'HER',
+      his: 'her', His: 'Her', HIS: 'HER',
+      hers: 'hers', Hers: 'Hers', HERS: 'HERS',
+      himself: 'herself', Himself: 'Herself', HIMSELF: 'HERSELF',
+      petitioner: 'Petitioner', petitioner_lower: 'petitioner', PETITIONER: 'PETITIONER',
+      petitioner_possessive: "Petitioner's", PETITIONER_POSSESSIVE: "PETITIONER'S",
+      individual: 'an individual',
+      is_are: 'is', was_were: 'was', has_have: 'has',
+      s_suffix: 's',
+      brings_bring: 'brings', seeks_seek: 'seeks', contends_contend: 'contends'
     },
     nonbinary: {
-      he: 'they', He: 'They',
-      him: 'them', Him: 'Them',
-      his: 'their', His: 'Their',
-      hers: 'theirs', Hers: 'Theirs',
-      himself: 'themselves', Himself: 'Themselves',
-      is_are: 'are', was_were: 'were', has_have: 'have'
+      he: 'they', He: 'They', HE: 'THEY',
+      him: 'them', Him: 'Them', HIM: 'THEM',
+      his: 'their', His: 'Their', HIS: 'THEIR',
+      hers: 'theirs', Hers: 'Theirs', HERS: 'THEIRS',
+      himself: 'themselves', Himself: 'Themselves', HIMSELF: 'THEMSELVES',
+      petitioner: 'Petitioner', petitioner_lower: 'petitioner', PETITIONER: 'PETITIONER',
+      petitioner_possessive: "Petitioner's", PETITIONER_POSSESSIVE: "PETITIONER'S",
+      individual: 'an individual',
+      is_are: 'are', was_were: 'were', has_have: 'have',
+      s_suffix: 's',
+      brings_bring: 'brings', seeks_seek: 'seeks', contends_contend: 'contends'
     },
     petitioner: {
-      he: 'Petitioner', He: 'Petitioner',
-      him: 'Petitioner', Him: 'Petitioner',
-      his: "Petitioner's", His: "Petitioner's",
-      hers: "Petitioner's", Hers: "Petitioner's",
-      himself: 'Petitioner', Himself: 'Petitioner',
-      is_are: 'is', was_were: 'was', has_have: 'has'
+      he: 'Petitioner', He: 'Petitioner', HE: 'PETITIONER',
+      him: 'Petitioner', Him: 'Petitioner', HIM: 'PETITIONER',
+      his: "Petitioner's", His: "Petitioner's", HIS: "PETITIONER'S",
+      hers: "Petitioner's", Hers: "Petitioner's", HERS: "PETITIONER'S",
+      himself: 'Petitioner', Himself: 'Petitioner', HIMSELF: 'PETITIONER',
+      petitioner: 'Petitioner', petitioner_lower: 'petitioner', PETITIONER: 'PETITIONER',
+      petitioner_possessive: "Petitioner's", PETITIONER_POSSESSIVE: "PETITIONER'S",
+      individual: 'an individual',
+      is_are: 'is', was_were: 'was', has_have: 'has',
+      s_suffix: 's',
+      brings_bring: 'brings', seeks_seek: 'seeks', contends_contend: 'contends'
     }
   };
 
   const p = map[choice] || map.male;
 
   return {
-    "he": p.he, "He": p.He,
-    "him": p.him, "Him": p.Him,
-    "his": p.his, "His": p.His,
-    "hers": p.hers, "Hers": p.Hers,
-    "himself": p.himself, "Himself": p.Himself,
-    "he/she": p.he, "He/She": p.He,
-    "his/her": p.his, "His/Her": p.His,
-    "him/her": p.him, "Him/Her": p.Him,
-    "himself/herself": p.himself, "Himself/Herself": p.Himself,
-    "is/are": p.is_are, "was/were": p.was_were, "has/have": p.has_have,
+    // Exact Pronouns
+    "he": p.he, "He": p.He, "HE": p.HE,
+    "him": p.him, "Him": p.Him, "HIM": p.HIM,
+    "his": p.his, "His": p.His, "HIS": p.HIS,
+    "hers": p.hers, "Hers": p.Hers, "HERS": p.HERS,
+    "himself": p.himself, "Himself": p.Himself, "HIMSELF": p.HIMSELF,
+    "he/she": p.he, "He/She": p.He, "HE/SHE": p.HE,
+    "his/her": p.his, "His/Her": p.His, "HIS/HER": p.HIS,
+    "him/her": p.him, "Him/Her": p.Him, "HIM/HER": p.HIM,
+    "himself/herself": p.himself, "Himself/Herself": p.Himself, "HIMSELF/HERSELF": p.HIMSELF,
+    "his/hers": p.hers,
+
+    // Natural Petitioner Tags
+    "Petitioner": p.petitioner,
+    "petitioner": p.petitioner_lower,
+    "PETITIONER": p.PETITIONER,
+    "Petitioner's": p.petitioner_possessive,
+    "petitioner's": p.petitioner_possessive.toLowerCase(),
+    "PETITIONER'S": p.PETITIONER_POSSESSIVE,
+    "Petitioner/Petitioners": p.petitioner,
+    "petitioner/petitioners": p.petitioner_lower,
+    "PETITIONER/PETITIONERS": p.PETITIONER,
+    "Petitioner's/Petitioners'": p.petitioner_possessive,
+    "petitioner's/petitioners'": p.petitioner_possessive.toLowerCase(),
+
+    // Descriptive Grammar Roles
     "Pronoun Subject": p.He, "pronoun subject": p.he,
     "Pronoun Object": p.Him, "pronoun object": p.him,
     "Pronoun Possessive": p.His, "pronoun possessive": p.his,
     "Pronoun Reflexive": p.Himself, "pronoun reflexive": p.himself,
+
+    // Noun Number Helpers
+    "individual/individuals": p.individual,
+    "an individual/individuals": p.individual,
+
+    // Verb Agreement Helpers
+    "is/are": p.is_are, "was/were": p.was_were, "has/have": p.has_have,
+    "brings/bring": p.brings_bring, "seeks/seek": p.seeks_seek, "contends/contend": p.contends_contend,
+    "s": p.s_suffix,
+
+    // Logical Conditions
     "Pronouns": choice,
     "Gender": choice
   };
 }
 
 /**
- * Helper to collect current form values into structured template data
+ * Collects form values into structured template data
  */
 function getFormData() {
   const petitionSelect = document.getElementById('petition_type');
@@ -75,7 +122,6 @@ function getFormData() {
     ? petitionSelect.options[petitionSelect.selectedIndex].text
     : '';
 
-  // Extract name parts
   const firstName = document.getElementById('petitioner_first_name')?.value.trim() || '';
   const middleName = document.getElementById('petitioner_middle_name')?.value.trim() || '';
   const lastName = document.getElementById('petitioner_last_name')?.value.trim() || '';
@@ -83,7 +129,6 @@ function getFormData() {
 
   const fullName = [firstName, middleName, lastName, suffix].filter(Boolean).join(' ');
 
-  // Extract Pronouns (defaults to male)
   const selectedPronoun = document.querySelector('input[name="petitioner_pronouns"]:checked')?.value || 'male';
   const pronounData = getPronounData(selectedPronoun);
 
@@ -93,7 +138,6 @@ function getFormData() {
     "Petition Type": petitionVal,
     "Type of Habeas Petition Full": petitionFullText,
 
-    // Combined & Individual Name Variables
     "Petitioner Name": fullName,
     "Petitioner First Name": firstName,
     "Petitioner Middle Name": middleName,
@@ -106,9 +150,7 @@ function getFormData() {
     "Case Number": document.getElementById('case_number')?.value || ''
   };
 
-  // Merge in pronoun aliases
   const formData = Object.assign({}, baseFormData, pronounData);
-
   return { formData, fullName };
 }
 
@@ -127,7 +169,7 @@ async function runPleadingAction(shouldDownload) {
   });
 }
 
-// Bind Button Click Events
+// Bind Buttons on Page Load
 document.addEventListener('DOMContentLoaded', () => {
   const renderBtn = document.getElementById('renderBtn');
   const downloadBtn = document.getElementById('downloadBtn');

@@ -108,7 +108,7 @@ const DocxEngine = {
           get(scope) {
             if (!cleanTag) return "";
 
-            // 1. EXACT CASE MATCH FIRST (Preserves distinct [he] vs [He] vs [HE])
+            // 1. EXACT CASE MATCH FIRST
             if (scope[cleanTag] !== undefined && scope[cleanTag] !== null && scope[cleanTag] !== "") {
               return scope[cleanTag];
             }
@@ -128,11 +128,13 @@ const DocxEngine = {
               }
             }
 
+            // 3. Condition vs Missing Placeholder Check
             const isCondition = /[=!<>]|\b(and|or)\b|&&|\|\|/i.test(cleanTag);
             if (!isCondition) {
               return "*** MISSING DATA ***";
             }
 
+            // 4. Condition Evaluation
             try {
               let expr = cleanTag;
               expr = expr.replace(/(["'])(.*?)\1/g, (m, q, text) => {
@@ -169,6 +171,7 @@ const DocxEngine = {
         mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
       });
 
+      // File Download (Skips preview)
       if (download === true) {
         if (typeof saveAs === "function") {
           saveAs(out, outputFilename || "Document_Output.docx");
@@ -183,6 +186,7 @@ const DocxEngine = {
         return;
       }
 
+      // Render In-Browser Preview
       if (container) {
         if (window.docx && typeof window.docx.renderAsync === "function") {
           container.innerHTML = "";

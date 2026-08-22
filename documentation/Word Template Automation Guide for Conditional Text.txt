@@ -40,9 +40,14 @@ Key Features for Legal Drafting:
 
 2. AUTOMATIC PRONOUN & GENDER TOGGLING
 --------------------------------------------------------------------------------
-The intake form includes a 1-click pronoun selector (He/Him, She/Her, They/Them, 
-or Petitioner/Noun Only). When a selection is made, the generator automatically 
-derives and populates all grammatical pronoun forms.
+The intake form includes a 1-click pronoun selector:
+  • He / Him           (Default Male)
+  • She / Her          (Female)
+  • They / Them        (Gender-Neutral / Non-Binary)
+  • Petitioner         (Noun Only / Formal Pleading)
+
+When a selection is made, the generator automatically derives and populates all 
+grammatical pronoun forms, noun cases, and verb agreements.
 
 A. Recommended Tag Formats
 You can use either intuitive slash tags or direct pronoun tags:
@@ -72,19 +77,52 @@ B. Output Reference Matrix
 | [him/her] or [him] | him                | her       | them        | Petitioner        |
 | [himself/herself]  | himself            | herself   | themselves  | Petitioner        |
 
-C. Verb Agreement Helpers
-When drafting sentences with verbs that change between singular (he/she) and 
-plural (they), use these agreement tags:
-• [is/are]   -> Resolves to "is" (male/female/petitioner) or "are" (nonbinary)
-• [was/were] -> Resolves to "was" (male/female/petitioner) or "were" (nonbinary)
-• [has/have] -> Resolves to "has" (male/female/petitioner) or "have" (nonbinary)
 
-Example Pleading Sentence:
-  [He/She] [is/are] currently detained in administrative custody. [He/She] 
-  [has/have] remained confined without an individualized bond hearing, violating 
-  [his/her] due process rights.
+C. HOW THE BACKEND ENGINE HANDLES VERBS (SINGULAR VS. PLURAL)
+--------------------------------------------------------------------------------
+In English, when a person uses "they/them" pronouns, standard grammar dictates 
+that associated auxiliary verbs take their plural forms ("they are", "they were", 
+"they have"). 
 
-D. Conditional Pronoun Checks
+To handle this seamlessly, the backend engine evaluates verb agreement tags:
+
+| Verb Tag Typed | He / Him | She / Her | They / Them (Backend Plural) | Petitioner |
+| :--- | :--- | :--- | :--- | :--- |
+| [is/are]       | is       | is        | **are**                      | is         |
+| [was/were]     | was      | was       | **were**                     | was        |
+| [has/have]     | has      | has       | **have**                     | has        |
+
+
+D. THE 2 GOLDEN RULES FOR DRAFTING SENTENCES WITH VERBS
+--------------------------------------------------------------------------------
+Because the backend engine evaluates `[is/are]` as `"are"` for they/them, you must 
+be careful about which subject precedes the verb in your Word document.
+
+RULE 1: When the subject is the title/name ("Petitioner Jane Doe" or "Petitioner")
+In English, a named party is ALWAYS a singular noun. Therefore, you do NOT need 
+agreement tags after the title/name. Hardcode standard singular words:
+
+  ❌ INCORRECT:  Petitioner [Petitioner Name] [is/are] an individual...
+                 (Produces: "Petitioner Jane Doe are an individual" for They/Them)
+
+  ✅ CORRECT:    Petitioner [Petitioner Name] is an individual residing in [Jurisdiction].
+                 Petitioner brings this action on [his/her] own behalf.
+
+RULE 2: When the subject is the Pronoun Placeholder (`[He/She]` or `[He]`)
+Use the agreement tag whenever the sentence starts with the pronoun tag:
+
+  ✅ CORRECT:    [He/She] [is/are] currently detained in administrative custody.
+  ✅ CORRECT:    [He/She] [was/were] transferred without notice.
+  ✅ CORRECT:    [He/She] [has/have] remained confined for over six months.
+
+  How Rule 2 renders across all selections:
+  • He / Him:    "He is currently detained... He was transferred... He has remained..."
+  • She / Her:   "She is currently detained... She was transferred... She has remained..."
+  • They / Them: "They are currently detained... They were transferred... They have remained..."
+  • Petitioner:  "Petitioner is currently detained... Petitioner was transferred..."
+
+
+E. Conditional Pronoun Checks
 You can also write conditional blocks based on the selected pronoun option:
   [IF Pronouns = "male"]
   Petitioner uses he/him pronouns.
@@ -209,17 +247,19 @@ _________________________________________  )
 PETITION FOR WRIT OF HABEAS CORPUS
 
 
-1. Petitioner, [Petitioner Name], is an individual currently residing in [Jurisdiction]. [He/She] brings this petition on [his/her] own behalf.
+1. Petitioner, [Petitioner Name], is an individual currently residing in [Jurisdiction]. Petitioner brings this petition on [his/her] own behalf.
 
-2. At all times relevant hereto, [he/she] [was/were] held in custody by Respondent [Defendant Name]. [He/She] contends that [his/her] continued confinement without an individualized bond hearing violates [his/her] constitutional rights.
+2. At all times relevant hereto, Petitioner was held in custody by Respondent [Defendant Name]. [He/She] [is/are] currently detained without statutory authority.
 
-3. This action is brought pursuant to [Jurisdiction] law. [IF Jurisdiction = "Massachusetts"]See Mass. Gen. Laws ch. 260, § 2.[ELSE IF Jurisdiction = "Rhode Island"]See R.I. Gen. Laws § 10-9-1.[ELSE]See applicable federal statutory provisions.[END IF]
+3. [He/She] [was/were] denied an individualized bond hearing before an Immigration Judge, violating [his/her] Fifth Amendment due process rights.
+
+4. This action is brought pursuant to [Jurisdiction] law. [IF Jurisdiction = "Massachusetts"]See Mass. Gen. Laws ch. 260, § 2.[ELSE IF Jurisdiction = "Rhode Island"]See R.I. Gen. Laws § 10-9-1.[ELSE]See applicable federal statutory provisions.[END IF]
 
 [IF Type of Habeas Petition = "GO Class"]
-4. Petitioner brings this action on behalf of all similarly situated parties as a GO Class proceeding.
+5. Petitioner brings this action on behalf of all similarly situated parties as a GO Class proceeding.
 [END IF]
 
-5. [IF Type of Habeas Petition = "GO Class"]Petitioner seeks class-wide declaratory and injunctive relief on behalf of all class members.[ELSE]Petitioner seeks individual habeas corpus relief and an immediate bond hearing for [himself/herself].[END IF]
+6. [IF Type of Habeas Petition = "GO Class"]Petitioner seeks class-wide declaratory and injunctive relief on behalf of all class members.[ELSE]Petitioner seeks individual habeas corpus relief and an immediate bond hearing for [himself/herself].[END IF]
 
 
 DATED this _____ day of ____________, 2026.

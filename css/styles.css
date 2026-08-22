@@ -34,7 +34,7 @@ input, select {
   gap: 8px;
 }
 
-/* Segmented Pronoun Selector */
+/* Segmented Pronoun / Party Selector */
 .segmented-control {
   display: flex;
   background: #e2e8f0;

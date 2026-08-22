@@ -9,7 +9,7 @@ const ACCESS_PASSWORD = "Habeas123!";
 let currentArrayBuffer = null;
 
 /**
- * Derives comprehensive grammatical pronoun tags with distinct casing
+ * Derives comprehensive grammatical pronoun and party tags
  */
 function getPronounData(choice) {
   const map = {
@@ -19,7 +19,12 @@ function getPronounData(choice) {
       his: 'his', His: 'His', HIS: 'HIS',
       hers: 'his', Hers: 'His', HERS: 'HIS',
       himself: 'himself', Himself: 'Himself', HIMSELF: 'HIMSELF',
-      is_are: 'is', was_were: 'was', has_have: 'has'
+      petitioner: 'Petitioner', petitioner_lower: 'petitioner', PETITIONER: 'PETITIONER',
+      petitioner_possessive: "Petitioner's", PETITIONER_POSSESSIVE: "PETITIONER'S",
+      individual: 'an individual',
+      is_are: 'is', was_were: 'was', has_have: 'has',
+      s_suffix: 's',
+      brings_bring: 'brings', seeks_seek: 'seeks', contends_contend: 'contends'
     },
     female: {
       he: 'she', He: 'She', HE: 'SHE',
@@ -27,7 +32,12 @@ function getPronounData(choice) {
       his: 'her', His: 'Her', HIS: 'HER',
       hers: 'hers', Hers: 'Hers', HERS: 'HERS',
       himself: 'herself', Himself: 'Herself', HIMSELF: 'HERSELF',
-      is_are: 'is', was_were: 'was', has_have: 'has'
+      petitioner: 'Petitioner', petitioner_lower: 'petitioner', PETITIONER: 'PETITIONER',
+      petitioner_possessive: "Petitioner's", PETITIONER_POSSESSIVE: "PETITIONER'S",
+      individual: 'an individual',
+      is_are: 'is', was_were: 'was', has_have: 'has',
+      s_suffix: 's',
+      brings_bring: 'brings', seeks_seek: 'seeks', contends_contend: 'contends'
     },
     nonbinary: {
       he: 'they', He: 'They', HE: 'THEY',
@@ -35,7 +45,12 @@ function getPronounData(choice) {
       his: 'their', His: 'Their', HIS: 'THEIR',
       hers: 'theirs', Hers: 'Theirs', HERS: 'THEIRS',
       himself: 'themselves', Himself: 'Themselves', HIMSELF: 'THEMSELVES',
-      is_are: 'are', was_were: 'were', has_have: 'have'
+      petitioner: 'Petitioner', petitioner_lower: 'petitioner', PETITIONER: 'PETITIONER',
+      petitioner_possessive: "Petitioner's", PETITIONER_POSSESSIVE: "PETITIONER'S",
+      individual: 'an individual',
+      is_are: 'are', was_were: 'were', has_have: 'have',
+      s_suffix: 's',
+      brings_bring: 'brings', seeks_seek: 'seeks', contends_contend: 'contends'
     },
     petitioner: {
       he: 'Petitioner', He: 'Petitioner', HE: 'PETITIONER',
@@ -43,61 +58,53 @@ function getPronounData(choice) {
       his: "Petitioner's", His: "Petitioner's", HIS: "PETITIONER'S",
       hers: "Petitioner's", Hers: "Petitioner's", HERS: "PETITIONER'S",
       himself: 'Petitioner', Himself: 'Petitioner', HIMSELF: 'PETITIONER',
-      is_are: 'is', was_were: 'was', has_have: 'has'
+      petitioner: 'Petitioner', petitioner_lower: 'petitioner', PETITIONER: 'PETITIONER',
+      petitioner_possessive: "Petitioner's", PETITIONER_POSSESSIVE: "PETITIONER'S",
+      individual: 'an individual',
+      is_are: 'is', was_were: 'was', has_have: 'has',
+      s_suffix: 's',
+      brings_bring: 'brings', seeks_seek: 'seeks', contends_contend: 'contends'
     }
   };
 
   const p = map[choice] || map.male;
 
   return {
-    // Lowercase
-    "he": p.he,
-    "him": p.him,
-    "his": p.his,
-    "hers": p.hers,
-    "himself": p.himself,
-    "he/she": p.he,
-    "his/her": p.his,
-    "him/her": p.him,
-    "himself/herself": p.himself,
+    "he": p.he, "He": p.He, "HE": p.HE,
+    "him": p.him, "Him": p.Him, "HIM": p.HIM,
+    "his": p.his, "His": p.His, "HIS": p.HIS,
+    "hers": p.hers, "Hers": p.Hers, "HERS": p.HERS,
+    "himself": p.himself, "Himself": p.Himself, "HIMSELF": p.HIMSELF,
+    "he/she": p.he, "He/She": p.He, "HE/SHE": p.HE,
+    "his/her": p.his, "His/Her": p.His, "HIS/HER": p.HIS,
+    "him/her": p.him, "Him/Her": p.Him, "HIM/HER": p.HIM,
+    "himself/herself": p.himself, "Himself/Herself": p.Himself, "HIMSELF/HERSELF": p.HIMSELF,
     "his/hers": p.hers,
-    "pronoun subject": p.he,
-    "pronoun object": p.him,
-    "pronoun possessive": p.his,
-    "pronoun reflexive": p.himself,
 
-    // Capitalized / Title Case
-    "He": p.He,
-    "Him": p.Him,
-    "His": p.His,
-    "Hers": p.Hers,
-    "Himself": p.Himself,
-    "He/She": p.He,
-    "His/Her": p.His,
-    "Him/Her": p.Him,
-    "Himself/Herself": p.Himself,
-    "Pronoun Subject": p.He,
-    "Pronoun Object": p.Him,
-    "Pronoun Possessive": p.His,
-    "Pronoun Reflexive": p.Himself,
+    "Petitioner": p.petitioner,
+    "petitioner": p.petitioner_lower,
+    "PETITIONER": p.PETITIONER,
+    "Petitioner's": p.petitioner_possessive,
+    "petitioner's": p.petitioner_possessive.toLowerCase(),
+    "PETITIONER'S": p.PETITIONER_POSSESSIVE,
+    "Petitioner/Petitioners": p.petitioner,
+    "petitioner/petitioners": p.petitioner_lower,
+    "PETITIONER/PETITIONERS": p.PETITIONER,
+    "Petitioner's/Petitioners'": p.petitioner_possessive,
+    "petitioner's/petitioners'": p.petitioner_possessive.toLowerCase(),
 
-    // ALL CAPS
-    "HE": p.HE,
-    "HIM": p.HIM,
-    "HIS": p.HIS,
-    "HERS": p.HERS,
-    "HIMSELF": p.HIMSELF,
-    "HE/SHE": p.HE,
-    "HIS/HER": p.HIS,
-    "HIM/HER": p.HIM,
-    "HIMSELF/HERSELF": p.HIMSELF,
+    "Pronoun Subject": p.He, "pronoun subject": p.he,
+    "Pronoun Object": p.Him, "pronoun object": p.him,
+    "Pronoun Possessive": p.His, "pronoun possessive": p.his,
+    "Pronoun Reflexive": p.Himself, "pronoun reflexive": p.himself,
 
-    // Verbs
-    "is/are": p.is_are,
-    "was/were": p.was_were,
-    "has/have": p.has_have,
+    "individual/individuals": p.individual,
+    "an individual/individuals": p.individual,
 
-    // Logical conditions
+    "is/are": p.is_are, "was/were": p.was_were, "has/have": p.has_have,
+    "brings/bring": p.brings_bring, "seeks/seek": p.seeks_seek, "contends/contend": p.contends_contend,
+    "s": p.s_suffix,
+
     "Pronouns": choice,
     "Gender": choice
   };
@@ -198,7 +205,7 @@ function handleFile(file) {
 }
 
 // ============================================================================
-// 3. AUTO-SYNC: CLONE FORM FROM index.html & POPULATE TEST DATA
+// 3. AUTO-SYNC: CLONE FORM FROM index.html
 // ============================================================================
 async function loadFormFromIndex() {
   const container = document.getElementById('sandbox-form-container');
@@ -612,7 +619,7 @@ async function runTestRender(shouldDownload) {
           get(scope) {
             if (!cleanTag) return "";
 
-            // 1. EXACT CASE MATCH FIRST (Preserves distinct [he] vs [He] vs [HE])
+            // 1. EXACT CASE MATCH FIRST
             if (scope[cleanTag] !== undefined && scope[cleanTag] !== null && scope[cleanTag] !== "") {
               return scope[cleanTag];
             }

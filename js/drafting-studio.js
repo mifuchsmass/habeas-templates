@@ -404,7 +404,7 @@ function inspectTemplate(buffer, filename) {
         </div>
       `;
 
-      // Discover and inject dynamic custom fields
+      // Discover and inject dynamic custom fields into sandbox
       const discovered = DocxEngine.extractCustomFields(xmlContent);
       if (discovered.length > 0 && dynamicContainer && dynamicSection) {
         dynamicContainer.innerHTML = "";
@@ -418,7 +418,19 @@ function inspectTemplate(buffer, filename) {
           const input = document.createElement('input');
           input.type = 'text';
           input.setAttribute('data-dynamic-tag', tag);
-          input.value = tag.toLowerCase().includes('date') ? 'May 12, 2024' : (tag.toLowerCase().includes('facility') ? 'Regional Detention Center' : (tag.toLowerCase().includes('citizenship') ? 'Guatemala' : (tag.toLowerCase().includes('location') ? 'Nogales, Arizona' : 'Sample Value')));
+
+          // Option A: Smart Date Placeholder + Sandbox Sample Value
+          if (tag.toLowerCase().includes('date')) {
+            input.placeholder = "e.g., May 15, 2026 or on or about May 2024...";
+            input.value = "May 12, 2024";
+          } else {
+            input.placeholder = `Enter ${tag}...`;
+            input.value = tag.toLowerCase().includes('facility') 
+              ? 'Regional Detention Center' 
+              : (tag.toLowerCase().includes('citizenship') 
+                ? 'Guatemala' 
+                : (tag.toLowerCase().includes('location') ? 'Nogales, Arizona' : 'Sample Value'));
+          }
 
           fieldWrapper.appendChild(label);
           fieldWrapper.appendChild(input);

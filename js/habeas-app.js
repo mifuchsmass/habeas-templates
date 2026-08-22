@@ -135,7 +135,13 @@ async function initializeDynamicFields() {
       const input = document.createElement('input');
       input.type = 'text';
       input.setAttribute('data-dynamic-tag', tag);
-      input.placeholder = `Enter ${tag}...`;
+
+      // Smart Contextual Date Placeholder
+      if (tag.toLowerCase().includes('date')) {
+        input.placeholder = "e.g., May 15, 2026 or on or about May 2024...";
+      } else {
+        input.placeholder = `Enter ${tag}...`;
+      }
 
       fieldWrapper.appendChild(label);
       fieldWrapper.appendChild(input);
@@ -147,7 +153,6 @@ async function initializeDynamicFields() {
     console.warn("Could not auto-discover dynamic fields for default template:", err.message);
   }
 }
-
 /**
  * Collects form values into structured template data (Primary + Dynamic)
  */

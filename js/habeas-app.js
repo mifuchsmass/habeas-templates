@@ -186,7 +186,6 @@ function getFormData() {
     "Case Number": document.getElementById('case_number')?.value || ''
   };
 
-  // Collect discovered dynamic fields
   const dynamicData = {};
   document.querySelectorAll('input[data-dynamic-tag]').forEach(input => {
     const tag = input.getAttribute('data-dynamic-tag');
@@ -212,17 +211,13 @@ async function runPleadingAction(shouldDownload) {
   });
 }
 
-// Bind Page Initialization and Buttons
+// Bind Action Buttons
 document.addEventListener('DOMContentLoaded', () => {
   initializeDynamicFields();
 
   const renderBtn = document.getElementById('renderBtn');
   const downloadBtn = document.getElementById('downloadBtn');
 
-  if (renderBtn) {
-    renderBtn.addEventListener('click', () => runPleadingAction(false));
-  }
-  if (downloadBtn) {
-    downloadBtn.addEventListener('click', () => runPleadingAction(true));
-  }
+  if (renderBtn) renderBtn.addEventListener('click', () => runPleadingAction(false));
+  if (downloadBtn) downloadBtn.addEventListener('click', () => runPleadingAction(true));
 });

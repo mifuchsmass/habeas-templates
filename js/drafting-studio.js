@@ -193,7 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function handleFile(file) {
   if (!file || !file.name.toLowerCase().endsWith('.docx')) {
-    alert('Please select a Microsoft Word .docx document.');
+    showToast('Please select a Microsoft Word .docx document.', 'error');
     return;
   }
   const reader = new FileReader();
@@ -683,10 +683,17 @@ async function runTestRender(shouldDownload) {
     doc.render(testData);
     const out = doc.getZip().generate({ type: "blob" });
 
+    // If Download Compiled DOCX was clicked
     if (shouldDownload === true) {
+      const first = testData['first name'] || testData['petitioner_first_name'] || testData['petitioner first name'] || '';
+      const middle = testData['middle name'] || testData['petitioner_middle_name'] || testData['petitioner middle name'] || '';
+      const last = testData['last name'] || testData['petitioner_last_name'] || testData['petitioner last name'] || '';
+      const suffix = testData['suffix'] || testData['petitioner_suffix'] || testData['petitioner suffix'] || '';
+      const fullName = [first, middle, last, suffix].filter(Boolean).join(' ');
+
       const link = document.createElement("a");
       link.href = URL.createObjectURL(out);
-      link.download = "Drafting_Studio_Output.docx";
+      link.download = `Habeas Petition ${fullName || "Draft"}.docx`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

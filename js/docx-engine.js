@@ -174,7 +174,6 @@ const DocxEngine = {
             // 1. EXACT CASE MATCH FIRST
             if (scope[cleanTag] !== undefined && scope[cleanTag] !== null && scope[cleanTag] !== "") {
               const val = scope[cleanTag];
-              // Smart Caps: If tag was typed in [ALL CAPS], output in ALL CAPS
               if (typeof val === "string" && cleanTag === cleanTag.toUpperCase() && /[A-Z]/.test(cleanTag)) {
                 return val.toUpperCase();
               }
@@ -189,7 +188,6 @@ const DocxEngine = {
                 if (val === "" || val === undefined || val === null) {
                   return "*** MISSING DATA ***";
                 }
-                // Smart Caps: If tag was typed in [ALL CAPS], output in ALL CAPS
                 if (typeof val === "string" && cleanTag === cleanTag.toUpperCase() && /[A-Z]/.test(cleanTag)) {
                   return val.toUpperCase();
                 }
@@ -269,11 +267,59 @@ const DocxEngine = {
     }
   }
 };
-/**
- * Universal Form State Saver & Loader (100% Client-Side)
- */
-const FormStorage = {
-  save(filename = 'Habeas_Form_Data.json') {
+
+// ============================================================================
+// GLOBAL TOAST NOTIFICATIONS (Explicitly attached to window)
+// ============================================================================
+window.showToast = function(message, type = 'success', duration = 3000) {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  toast.className = `toast-notification toast-${type}`;
+  
+  const icon = type === 'success' ? '✅' : (type === 'error' ? '⚠️' : 'ℹ️');
+  toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
+  
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(-10px)';
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+};
+
+// ============================================================================
+// GLOBAL FORM STORAGE (Consistent Dynamic File Naming)
+// ============================================================================
+window.FormStorage = {
+  save(prefix = 'Habeas_Data') {
+    // 1. Extract Name Parts (Supports both index.html and Studio Sandbox)
+    let first = document.querySelector('#petitioner_first_name')?.value.trim() || '';
+    let middle = document.querySelector('#petitioner_middle_name')?.value.trim() || '';
+    let last = document.querySelector('#petitioner_last_name')?.value.trim() || '';
+    let suffix = document.querySelector('#petitioner_suffix')?.value.trim() || '';
+
+    // Fallback if full name is in a single field
+    if (!first && !last) {
+      const fullInput = document.querySelector('#Petitioner\\ Name') || 
+                        document.querySelector('[name="Petitioner Name"]');
+      if (fullInput) first = fullInput.value.trim();
+    }
+
+    const cleanName = [first, middle, last, suffix]
+      .filter(Boolean)
+      .join('_')
+      .replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    const filename = `${prefix}_${cleanName || 'Draft'}.json`;
+
+    // 2. Gather All Form Data
     const data = {};
     document.querySelectorAll('input, select, textarea').forEach(el => {
       const key = el.getAttribute('data-dynamic-tag') || el.name || el.id;
@@ -288,6 +334,7 @@ const FormStorage = {
       }
     });
 
+    // 3. Trigger Download
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -295,15 +342,22 @@ const FormStorage = {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+
+    window.showToast(`Saved as ${filename}!`, "success");
   },
 
-  // Opens file dialog dynamically on the fly (no hidden HTML input needed!)
   openFileDialog() {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json,.txt';
+    input.style.display = 'none';
+    document.body.appendChild(input);
+
     input.onchange = (e) => {
-      if (e.target.files.length) this.load(e.target.files[0]);
+      if (e.target.files && e.target.files.length) {
+        this.load(e.target.files[0]);
+      }
+      document.body.removeChild(input);
     };
     input.click();
   },
@@ -331,9 +385,10 @@ const FormStorage = {
             else el.value = data[key];
           }
         });
-        alert("Form data loaded successfully!");
+
+        window.showToast("Form data loaded successfully!", "success");
       } catch (err) {
-        alert("Error loading file: Invalid format.");
+        window.showToast("Error loading file: Invalid format.", "error");
       }
     };
     reader.readAsText(file);

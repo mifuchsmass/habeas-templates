@@ -8,10 +8,12 @@
   <!-- Shared Project Stylesheet -->
   <link rel="stylesheet" href="css/styles.css">
 
-<!-- External Parsing Libraries -->
+  <!-- External Parsing & Rendering Libraries -->
   <script src="https://unpkg.com/pizzip@3.1.7/dist/pizzip.js"></script>
   <script src="https://unpkg.com/docxtemplater@3.42.0/build/docxtemplater.js"></script>
-  <script src="https://unpkg.com/docx-preview@0.3.2/dist/docx-preview.min.js"></script></head>
+  <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://unpkg.com/docx-preview@0.3.2/dist/docx-preview.min.js"></script>
+</head>
 <body>
 
   <!-- 1. Password Lockscreen Overlay -->
@@ -45,43 +47,22 @@
     <input type="file" id="fileInput" accept=".docx" style="display: none;">
   </div>
 
-  <!-- Validation Results -->
+  <!-- Validation Results (Rich Context Error Cards or Green Badge) -->
   <div id="results"></div>
 
-  <!-- 3. Live Test Sandbox -->
+  <!-- 3. Live Test Sandbox (Auto-populated from index.html) -->
   <div class="sandbox" id="sandbox">
     <h3 style="margin: 0 0 6px 0;">🧪 Live Test Sandbox</h3>
     <p style="font-size: 13px; color: #666; margin: 0 0 16px 0;">
-      Change the case variables below to verify that your conditional paragraphs render properly:
+      Form fields below are <b>automatically synchronized with your live intake form</b>. Change values to verify how conditional paragraphs render:
     </p>
     
-    <div class="sandbox-grid">
-      <div class="field">
-        <label>Petitioner Name</label>
-        <input type="text" id="test_name" value="Jane Marie Doe">
-      </div>
-      <div class="field">
-        <label>Case Number</label>
-        <input type="text" id="test_case" value="1:26-cv-10042">
-      </div>
-      <div class="field">
-        <label>Jurisdiction</label>
-        <select id="test_jurisdiction">
-          <option value="Massachusetts">Massachusetts</option>
-          <option value="Rhode Island">Rhode Island</option>
-          <option value="New Hampshire">New Hampshire</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Type of Habeas Petition</label>
-        <select id="test_petition_type">
-          <option value="GO Class">GO Class</option>
-          <option value="Individual">Individual</option>
-        </select>
-      </div>
+    <!-- Auto-Sync Container (Form fields from index.html are injected here) -->
+    <div id="sandbox-form-container">
+      <p style="color: #888; font-style: italic;">Loading real form fields from index.html...</p>
     </div>
 
-    <button type="button" class="btn-primary" id="renderBtn">Render Test Document Preview</button>
+    <button type="button" class="btn-primary" id="renderBtn" style="margin-top: 18px;">Render Test Document Preview</button>
     
     <!-- Preview Container -->
     <div id="docx-preview-container"></div>

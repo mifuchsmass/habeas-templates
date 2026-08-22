@@ -1,5 +1,5 @@
 /**
- * Volunteer Drafting Studio & Template Logic Validator (Rich Context Edition)
+ * Volunteer Drafting Studio & Template Logic Validator (Smart Field Sync Edition)
  */
 
 // ============================================================================
@@ -21,7 +21,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const fileInput = document.getElementById('fileInput');
   const renderBtn = document.getElementById('renderBtn');
 
-  // Check if previously unlocked in this session
+  // Load real form fields from index.html
+  loadFormFromIndex();
+
   if (sessionStorage.getItem('drafting_studio_auth') === 'true') {
     if (overlay) overlay.style.display = 'none';
   }
@@ -60,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderBtn.addEventListener('click', runTestRender);
   }
 
-  // Dropzone setup
+  // Dropzone Handlers
   if (dropzone && fileInput) {
     dropzone.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
@@ -101,7 +103,68 @@ function handleFile(file) {
 }
 
 // ============================================================================
-// 3. ENHANCED TEMPLATE LOGIC SCANNER WITH CONTEXT EXTRACTION
+// 3. AUTO-SYNC: CLONE FORM FROM index.html & POPULATE TEST DATA
+// ============================================================================
+async function loadFormFromIndex() {
+  const container = document.getElementById('sandbox-form-container');
+  if (!container) return;
+
+  try {
+    const res = await fetch('index.html');
+    if (!res.ok) throw new Error('Could not fetch index.html');
+    
+    const htmlText = await res.text();
+    const doc = new DOMParser().parseFromString(htmlText, 'text/html');
+
+    const formElement = doc.querySelector('form') || doc.querySelector('.form-container') || doc.querySelector('main') || doc.body;
+    const clone = formElement.cloneNode(true);
+
+    // Remove buttons and preview containers from index.html
+    clone.querySelectorAll('button, #docx-preview-container, .preview-section, [type="submit"]').forEach(el => el.remove());
+
+    container.innerHTML = "";
+    container.appendChild(clone);
+
+    // Populate sensible sample defaults into all empty fields
+    populateSampleTestValues(container);
+
+  } catch (err) {
+    console.warn("Auto-sync fallback: Using default fields", err);
+    container.innerHTML = `
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div class="field"><label>Petitioner Name</label><input type="text" id="Petitioner Name" value="Jane Marie Doe"></div>
+        <div class="field"><label>Case Number</label><input type="text" id="Case Number" value="1:26-cv-10042"></div>
+        <div class="field"><label>Jurisdiction</label><select id="Jurisdiction"><option value="Massachusetts">Massachusetts</option><option value="Rhode Island">Rhode Island</option><option value="New Hampshire">New Hampshire</option></select></div>
+        <div class="field"><label>Type of Habeas Petition</label><select id="Type of Habeas Petition"><option value="GO Class">GO Class</option><option value="Individual">Individual</option></select></div>
+      </div>
+    `;
+  }
+}
+
+function populateSampleTestValues(container) {
+  container.querySelectorAll('input[type="text"], input:not([type]), textarea').forEach(input => {
+    if (!input.value) {
+      const id = (input.id || '').toLowerCase();
+      const name = (input.name || '').toLowerCase();
+      const label = (input.closest('.field')?.querySelector('label')?.innerText || '').toLowerCase();
+      const key = id + ' ' + name + ' ' + label;
+
+      if (key.includes('first')) input.value = 'Jane';
+      else if (key.includes('middle')) input.value = 'Marie';
+      else if (key.includes('last')) input.value = 'Doe';
+      else if (key.includes('suffix')) input.value = '';
+      else if (key.includes('petitioner')) input.value = 'Jane Marie Doe';
+      else if (key.includes('defendant') || key.includes('respondent')) input.value = 'Warden, Detention Facility';
+      else if (key.includes('case') || key.includes('docket')) input.value = '1:26-cv-10042';
+      else if (key.includes('facility')) input.value = 'Regional Detention Center';
+      else if (key.includes('days')) input.value = '180';
+      else input.value = 'Sample Value';
+    }
+  });
+}
+
+// ============================================================================
+// 4. TEMPLATE LOGIC SCANNER (Rich Context Edition)
 // ============================================================================
 function inspectTemplate(buffer, filename) {
   const resultsDiv = document.getElementById('results');
@@ -119,7 +182,6 @@ function inspectTemplate(buffer, filename) {
       }
     });
 
-    // 1. Clean XML to readable plain text for accurate snippet context
     const cleanDocText = xmlContent
       .replace(/<\/w:p>/g, '\n')
       .replace(/\[[^\]]*?\]/g, m => m.replace(/<[^>]+>/g, ''))
@@ -130,7 +192,6 @@ function inspectTemplate(buffer, filename) {
       .replace(/&quot;/g, '"')
       .replace(/&apos;/g, "'");
 
-    // Helper: extracts surrounding text for searchability in Word
     function getSnippet(fullText, index, tagLen) {
       const start = Math.max(0, index - 50);
       const end = Math.min(fullText.length, index + tagLen + 50);
@@ -154,7 +215,6 @@ function inspectTemplate(buffer, filename) {
       const matchIndex = match.index;
       const snippet = getSnippet(cleanDocText, matchIndex, rawTag.length);
 
-      // Check Quotes Balance
       const dbl = (body.match(/["\u201C\u201D]/g) || []).length;
       const sgl = (body.match(/['\u2018\u2019]/g) || []).length;
       if (dbl % 2 !== 0 || sgl % 2 !== 0) {
@@ -250,7 +310,6 @@ function inspectTemplate(buffer, filename) {
       }
     }
 
-    // Check for unclosed IF blocks
     while (stack.length > 0) {
       const unclosed = stack.pop();
       errors.push({
@@ -261,7 +320,6 @@ function inspectTemplate(buffer, filename) {
       });
     }
 
-    // Render Enhanced Results
     if (errors.length === 0) {
       resultsDiv.innerHTML = `
         <div class="badge-pass">
@@ -286,14 +344,12 @@ function inspectTemplate(buffer, filename) {
               <code style="background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 12px;">${escapeHtml(e.tag)}</code>
             </div>
             
-            <!-- Document Context Box -->
             <div class="snippet-box">
               <span style="color: #64748b;">${escapeHtml(e.snippet.before)}</span>
               <mark class="snippet-highlight">${escapeHtml(e.snippet.tag)}</mark>
               <span style="color: #64748b;">${escapeHtml(e.snippet.after)}</span>
             </div>
 
-            <!-- How to Fix Box -->
             <div class="fix-box">
               <strong>👉 How to fix in Word:</strong> ${e.fix}
             </div>
@@ -320,22 +376,89 @@ function escapeHtml(text) {
 }
 
 // ============================================================================
-// 4. LIVE TEST SANDBOX RENDERER
+// 5. LIVE TEST SANDBOX RENDERER
 // ============================================================================
 async function runTestRender() {
   if (!currentArrayBuffer) return;
   
-  const testData = {
-    "Petitioner Name": document.getElementById('test_name').value,
-    "Case Number": document.getElementById('test_case').value,
-    "Jurisdiction": document.getElementById('test_jurisdiction').value,
-    "Type of Habeas Petition": document.getElementById('test_petition_type').value,
-    "Defendant Name": "Warden, Detention Facility"
-  };
+  const testData = {};
+  const container = document.getElementById('sandbox-form-container');
+
+  // Helper to record all casing variations of keys
+  function setFieldVariations(baseKey, val) {
+    if (!baseKey) return;
+    testData[baseKey] = val;
+    testData[baseKey.toLowerCase()] = val;
+    testData[baseKey.toUpperCase()] = val;
+    // Replace underscores/hyphens with spaces
+    const spaced = baseKey.replace(/[-_]/g, ' ').trim();
+    testData[spaced] = val;
+    testData[spaced.toLowerCase()] = val;
+    testData[spaced.toUpperCase()] = val;
+  }
+
+  // 1. Gather all values from the form
+  if (container) {
+    container.querySelectorAll('input, select, textarea').forEach(el => {
+      const val = (el.type === 'checkbox') ? el.checked : el.value;
+      
+      if (el.id) setFieldVariations(el.id, val);
+      if (el.name) setFieldVariations(el.name, val);
+      if (el.getAttribute('data-tag')) setFieldVariations(el.getAttribute('data-tag'), val);
+
+      // Associate by closest label text
+      const label = el.closest('.field')?.querySelector('label') || el.previousElementSibling;
+      if (label && label.tagName === 'LABEL') {
+        const labelText = label.innerText.replace(/[*:]/g, '').trim();
+        setFieldVariations(labelText, val);
+      }
+    });
+
+    // 2. Extract First/Middle/Last/Suffix to build Petitioner Name
+    const first = testData['first name'] || testData['first_name'] || testData['firstname'] || testData['petitioner first name'] || '';
+    const middle = testData['middle name'] || testData['middle_name'] || testData['middlename'] || testData['petitioner middle name'] || '';
+    const last = testData['last name'] || testData['last_name'] || testData['lastname'] || testData['petitioner last name'] || '';
+    const suffix = testData['suffix'] || testData['petitioner suffix'] || '';
+
+    if (first || last) {
+      const fullName = [first, middle, last, suffix].filter(Boolean).join(' ');
+      setFieldVariations('Petitioner Name', fullName);
+      setFieldVariations('Petitioner First Name', first);
+      setFieldVariations('Petitioner Middle Name', middle);
+      setFieldVariations('Petitioner Last Name', last);
+      setFieldVariations('Petitioner Suffix', suffix);
+    }
+
+    // Set Defendant / Case aliases
+    const def = testData['defendant name'] || testData['defendant_name'] || testData['respondent name'] || testData['respondent_name'] || testData['defendant'] || testData['respondent'];
+    if (def) {
+      setFieldVariations('Defendant Name', def);
+      setFieldVariations('Respondent Name', def);
+    }
+
+    const cNum = testData['case number'] || testData['case_number'] || testData['docket number'] || testData['docket_number'] || testData['case'] || testData['docket'];
+    if (cNum) {
+      setFieldVariations('Case Number', cNum);
+      setFieldVariations('Docket Number', cNum);
+    }
+  }
+
+  // 3. Build Option Aliases
+  const optionAliases = {};
+  document.querySelectorAll('#sandbox-form-container select option').forEach(opt => {
+    const val = opt.value;
+    const fullText = opt.text.trim();
+    const textWithoutParens = fullText.replace(/\s*\([^)]*\)\s*$/, '').trim();
+    if (val) {
+      optionAliases[fullText.toLowerCase()] = val;
+      optionAliases[textWithoutParens.toLowerCase()] = val;
+    }
+  });
 
   try {
     const zip = new PizZip(currentArrayBuffer);
     
+    // Parse IF tags using your engine's logic
     Object.keys(zip.files).forEach(filename => {
       if (filename.startsWith("word/") && filename.endsWith(".xml")) {
         let xml = zip.files[filename].asText().replace(/\[[^\]]*?\]/g, match => match.replace(/<[^>]+>/g, ''));
@@ -395,23 +518,46 @@ async function runTestRender() {
         return {
           get(scope) {
             if (!cleanTag) return "";
-            const target = cleanTag.toLowerCase();
+
+            // 1. Direct Key Match (case-insensitive & space-flexible)
+            const target = cleanTag.toLowerCase().replace(/[-_\s]/g, '');
             for (const k of Object.keys(scope)) {
-              if (k.toLowerCase() === target) {
+              if (k.toLowerCase().replace(/[-_\s]/g, '') === target) {
                 const val = scope[k];
-                if (!val) return "*** MISSING DATA ***";
-                if (typeof val === "string" && cleanTag === cleanTag.toUpperCase() && /[A-Z]/.test(cleanTag)) return val.toUpperCase();
+                if (val === "" || val === undefined || val === null) {
+                  return "*** MISSING DATA ***";
+                }
+                // Smart Caps: If tag was typed in [ALL CAPS], output in ALL CAPS
+                if (typeof val === "string" && cleanTag === cleanTag.toUpperCase() && /[A-Z]/.test(cleanTag)) {
+                  return val.toUpperCase();
+                }
                 return val;
               }
             }
+
+            // 2. If tag is purely a text placeholder (no logic operators), do NOT evaluate as boolean
+            const isCondition = /[=!<>]|\b(and|or)\b|&&|\|\|/i.test(cleanTag);
+            if (!isCondition) {
+              return "*** MISSING DATA ***";
+            }
+
+            // 3. Condition Evaluation
             try {
               let expr = cleanTag;
-              Object.keys(scope).sort((a,b) => b.length - a.length).forEach(v => {
+              expr = expr.replace(/(["'])(.*?)\1/g, (m, q, text) => {
+                const lower = text.trim().toLowerCase();
+                return optionAliases[lower] ? `"${optionAliases[lower]}"` : m;
+              });
+
+              Object.keys(scope).sort((a, b) => b.length - a.length).forEach(v => {
                 const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 expr = expr.replace(new RegExp('\\b' + escaped + '\\b', 'gi'), 'scope["' + v + '"]');
               });
+
               return new Function("scope", "return Boolean(" + expr + ");")(scope);
-            } catch(e) { return false; }
+            } catch (e) {
+              return false;
+            }
           }
         };
       }
@@ -422,7 +568,7 @@ async function runTestRender() {
     const previewContainer = document.getElementById('docx-preview-container');
     previewContainer.innerHTML = "";
     await docx.renderAsync(out, previewContainer);
-  } catch(err) {
+  } catch (err) {
     document.getElementById('docx-preview-container').innerHTML = `<p style="color:red; font-weight:bold; padding: 12px;">Render Error: ${err.message}</p>`;
   }
-}
+}s

@@ -71,12 +71,21 @@
       <div id="sandbox-dynamic-container" class="dynamic-fields-grid"></div>
     </div>
 
-    <!-- Actions -->
-    <div class="sandbox-actions">
-      <button type="button" id="renderBtn" class="btn-render">Render Preview 👁️</button>
-      <button type="button" id="downloadBtn" class="btn-download">Download Compiled DOCX 📥</button>
+    <!-- Action Command Center -->
+    <div class="action-block">
+      <!-- Primary Actions -->
+      <div class="sandbox-actions">
+        <button type="button" id="renderBtn" class="btn-render">Render Preview 👁️</button>
+        <button type="button" id="downloadBtn" class="btn-download">Download Compiled DOCX 📥</button>
+      </div>
+
+      <!-- Secondary Utilities -->
+      <div class="utility-actions">
+        <button type="button" class="btn-secondary" onclick="FormStorage.save('Studio_Sandbox_Data.json')">💾 Save Test Data (.json)</button>
+        <button type="button" class="btn-secondary" onclick="FormStorage.openFileDialog()">📂 Load Test Data</button>
+      </div>
     </div>
-    
+
     <!-- Preview Container -->
     <div id="docx-preview-container"></div>
   </div>

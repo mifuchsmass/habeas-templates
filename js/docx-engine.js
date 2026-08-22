@@ -269,3 +269,73 @@ const DocxEngine = {
     }
   }
 };
+/**
+ * Universal Form State Saver & Loader (100% Client-Side)
+ */
+const FormStorage = {
+  save(filename = 'Habeas_Form_Data.json') {
+    const data = {};
+    document.querySelectorAll('input, select, textarea').forEach(el => {
+      const key = el.getAttribute('data-dynamic-tag') || el.name || el.id;
+      if (!key) return;
+
+      if (el.type === 'radio') {
+        if (el.checked) data[el.name] = el.value;
+      } else if (el.type === 'checkbox') {
+        data[key] = el.checked;
+      } else {
+        data[key] = el.value;
+      }
+    });
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  },
+
+  // Opens file dialog dynamically on the fly (no hidden HTML input needed!)
+  openFileDialog() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,.txt';
+    input.onchange = (e) => {
+      if (e.target.files.length) this.load(e.target.files[0]);
+    };
+    input.click();
+  },
+
+  load(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        Object.keys(data).forEach(key => {
+          // 1. Radio Buttons (Pronouns)
+          const radio = document.querySelector(`input[type="radio"][name="${key}"][value="${data[key]}"]`);
+          if (radio) {
+            radio.checked = true;
+            return;
+          }
+
+          // 2. Text, Select, Checkboxes & Dynamic Fields
+          const el = document.querySelector(`[data-dynamic-tag="${key}"]`) || 
+                     document.getElementById(key) || 
+                     document.querySelector(`[name="${key}"]`);
+          if (el) {
+            if (el.type === 'checkbox') el.checked = Boolean(data[key]);
+            else el.value = data[key];
+          }
+        });
+        alert("Form data loaded successfully!");
+      } catch (err) {
+        alert("Error loading file: Invalid format.");
+      }
+    };
+    reader.readAsText(file);
+  }
+};

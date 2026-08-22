@@ -91,12 +91,21 @@
     <div id="dynamic-fields-container" class="dynamic-fields-grid"></div>
   </div>
 
-  <!-- Unified Two-Button Action Row -->
-  <div class="sandbox-actions">
-    <button type="button" id="renderBtn" class="btn-render">Render Preview 👁️</button>
-    <button type="button" id="downloadBtn" class="btn-download">Download Compiled DOCX 📥</button>
-  </div>
+   <!-- Action Command Center -->
+  <div class="action-block">
+    <!-- Primary Actions -->
+    <div class="sandbox-actions">
+      <button type="button" id="renderBtn" class="btn-render">Render Preview 👁️</button>
+      <button type="button" id="downloadBtn" class="btn-download">Download Compiled DOCX 📥</button>
+    </div>
 
+    <!-- Secondary Utilities -->
+    <div class="utility-actions">
+      <button type="button" class="btn-secondary" onclick="FormStorage.save()">💾 Save Form Data (.json)</button>
+      <button type="button" class="btn-secondary" onclick="FormStorage.openFileDialog()">📂 Load Saved Data</button>
+    </div>
+  </div>
+  
   <!-- Document Preview Container -->
   <div id="docx-preview-container"></div>
 

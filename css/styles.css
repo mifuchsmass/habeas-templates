@@ -430,3 +430,21 @@ button.btn-primary:hover {
 .btn-download:hover {
   background-color: #157347;
 }
+/* Bottom Action & Utility Layout */
+.action-block {
+  margin-top: 24px;
+  margin-bottom: 20px;
+}
+
+.utility-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.utility-actions .btn-secondary {
+  flex: 1;
+  justify-content: center;
+  padding: 8px 12px;
+  font-size: 13px;
+}

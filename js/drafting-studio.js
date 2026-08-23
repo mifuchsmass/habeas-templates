@@ -124,6 +124,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const renderBtn = document.getElementById('renderBtn');
   const downloadBtn = document.getElementById('downloadBtn');
 
+const inspectSnippetBtn = document.getElementById('inspectSnippetBtn');
+  const snippetInput = document.getElementById('snippetInput');
+
+  if (inspectSnippetBtn && snippetInput) {
+    inspectSnippetBtn.addEventListener('click', () => {
+      const text = snippetInput.value.trim();
+      if (!text) {
+        window.showToast("Please paste some text into the box to inspect.", "error");
+        return;
+      }
+      currentArrayBuffer = createDocxFromText(text);
+      inspectTemplate(currentArrayBuffer, "Pasted_Snippet.docx");
+    });
+  }
+
   loadPrimaryFormFromIndex();
 
   if (sessionStorage.getItem('drafting_studio_auth') === 'true') {
@@ -196,6 +211,11 @@ function handleFile(file) {
     showToast('Please select a Microsoft Word .docx document.', 'error');
     return;
   }
+
+  // Clear out the snippet text box
+  const snippetInput = document.getElementById('snippetInput');
+  if (snippetInput) snippetInput.value = '';
+
   const reader = new FileReader();
   reader.onload = function(e) {
     currentArrayBuffer = e.target.result;
@@ -250,6 +270,10 @@ function inspectTemplate(buffer, filename) {
   resultsDiv.innerHTML = "";
   sandboxDiv.style.display = "none";
   if (dynamicSection) dynamicSection.style.display = "none";
+
+// Clear out any previous preview
+  const previewContainer = document.getElementById('docx-preview-container');
+  if (previewContainer) previewContainer.innerHTML = "";
 
   try {
     const zip = new PizZip(buffer);
@@ -740,4 +764,28 @@ function isTagSyntaxValid(tagText) {
   const doubleQuoteCount = (normalizedText.match(/"/g) || []).length;
   
   return doubleQuoteCount % 2 === 0;
+}
+/**
+ * Wraps raw pasted snippet text into an in-memory DOCX ArrayBuffer
+ * so the entire existing validation, preview, and download engine is reused.
+ */
+function createDocxFromText(rawText) {
+  const zip = new PizZip();
+  const xmlBody = rawText
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .split('\n')
+    .map(line => `<w:p><w:r><w:t xml:space="preserve">${line}</w:t></w:r></w:p>`)
+    .join('');
+
+  const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${xmlBody}<w:sectPr/></w:body></w:document>`;
+  const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`;
+  const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`;
+
+  zip.file("_rels/.rels", rels);
+  zip.file("[Content_Types].xml", contentTypes);
+  zip.file("word/document.xml", docXml);
+
+  return zip.generate({ type: "arraybuffer" });
 }

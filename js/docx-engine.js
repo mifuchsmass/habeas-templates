@@ -271,6 +271,9 @@ const DocxEngine = {
       return {
         get(scope) {
           if (!cleanTag) return "";
+            if (/^(note|instruction|instructions|todo|guidance|comment)\b/i.test(cleanTag)) {
+              return `[${cleanTag}]`;
+          }
 
           // 1. EXACT CASE MATCH FIRST
           if (scope[cleanTag] !== undefined && scope[cleanTag] !== null && scope[cleanTag] !== "") {

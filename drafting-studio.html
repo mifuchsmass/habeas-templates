@@ -36,7 +36,7 @@
   <!-- 2. Main Studio Interface -->
   <h1>⚖️ Volunteer Drafting Studio & Logic Inspector</h1>
   <p class="studio-subtitle">
-    Drop your draft <b>.docx</b> template below to automatically verify all <code>[IF]</code>, <code>[ELSE IF]</code>, <code>[ELSE]</code>, and <code>[END IF]</code> tags before releasing to immigration attorneys.
+    Drop your draft <b>.docx</b> template below or paste a text snippet to automatically verify all <code>[IF]</code>, <code>[ELSE IF]</code>, <code>[ELSE]</code>, and <code>[END IF]</code> tags before releasing to immigration attorneys.
   </p>
 
   <!-- Dropzone -->
@@ -50,16 +50,16 @@
   <!-- OR Divider -->
   <div style="text-align: center; margin: 16px 0; font-weight: bold; color: #64748b;">— OR PASTE TEXT SNIPPET —</div>
 
-  <!-- Snippet Textarea Box -->
+  <!-- Snippet Textarea Box (Single Button with Disabled State) -->
   <div class="field">
     <textarea id="snippetInput" rows="5" placeholder="Paste paragraph text directly from Word here to test logic (e.g., 1. Petitioner [Petitioner Name] [IF Jurisdiction = &quot;Massachusetts&quot;]...[END IF])..."></textarea>
-    <button type="button" id="inspectSnippetBtn" class="btn-primary" style="margin-top: 8px;">Inspect Snippet 🔍</button>
+    <button type="button" id="inspectSnippetBtn" class="btn-primary" style="margin-top: 8px;" disabled>Inspect Snippet 🔍</button>
   </div>
-  
+
   <!-- Validation Results -->
   <div id="results"></div>
 
-  <!-- 3. Live Test Sandbox (Auto-synchronized with Pinned & Dynamic Fields) -->
+  <!-- 3. Live Test Sandbox -->
   <div class="sandbox" id="sandbox">
     <div class="sandbox-header">
       <h3>🧪 Live Test Sandbox</h3>
@@ -88,13 +88,13 @@
         <button type="button" id="downloadBtn" class="btn-download">Download Compiled DOCX 📥</button>
       </div>
 
-    <!-- Secondary Utilities -->
+      <!-- Secondary Utilities -->
       <div class="utility-actions">
         <button type="button" class="btn-secondary" onclick="FormStorage.save()">💾 Save Test Data (.json)</button>
         <button type="button" class="btn-secondary" onclick="FormStorage.openFileDialog()">📂 Load Test Data</button>
       </div>
     </div>
-
+    
     <!-- Preview Container -->
     <div id="docx-preview-container"></div>
   </div>

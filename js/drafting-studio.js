@@ -124,16 +124,30 @@ document.addEventListener('DOMContentLoaded', () => {
   const renderBtn = document.getElementById('renderBtn');
   const downloadBtn = document.getElementById('downloadBtn');
 
-const inspectSnippetBtn = document.getElementById('inspectSnippetBtn');
+  const inspectSnippetBtn = document.getElementById('inspectSnippetBtn');
   const snippetInput = document.getElementById('snippetInput');
 
+  // 1. Snippet Input & Button Listener (with Fresh Error/Preview Reset)
   if (inspectSnippetBtn && snippetInput) {
+    snippetInput.addEventListener('input', () => {
+      inspectSnippetBtn.disabled = !snippetInput.value.trim();
+    });
+
     inspectSnippetBtn.addEventListener('click', () => {
       const text = snippetInput.value.trim();
       if (!text) {
         window.showToast("Please paste some text into the box to inspect.", "error");
         return;
       }
+
+      // Clear any previous error cards, preview, and sandbox
+      const resultsDiv = document.getElementById('results');
+      const previewContainer = document.getElementById('docx-preview-container');
+      const sandboxDiv = document.getElementById('sandbox');
+      if (resultsDiv) resultsDiv.innerHTML = "";
+      if (previewContainer) previewContainer.innerHTML = "";
+      if (sandboxDiv) sandboxDiv.style.display = "none";
+
       currentArrayBuffer = createDocxFromText(text);
       inspectTemplate(currentArrayBuffer, "Pasted_Snippet.docx");
     });
@@ -175,17 +189,21 @@ const inspectSnippetBtn = document.getElementById('inspectSnippetBtn');
     });
   }
 
-  if (renderBtn) {
-    renderBtn.addEventListener('click', () => runTestRender(false));
-  }
-  if (downloadBtn) {
-    downloadBtn.addEventListener('click', () => runTestRender(true));
-  }
+  if (renderBtn) renderBtn.addEventListener('click', () => runTestRender(false));
+  if (downloadBtn) downloadBtn.addEventListener('click', () => runTestRender(true));
 
-  // Dropzone Handlers
+  // 2. Click-to-Browse with Input Reset (Always re-triggers on selection)
   if (dropzone && fileInput) {
-    dropzone.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+    dropzone.addEventListener('click', () => {
+      fileInput.value = ''; // Clear previous selection so picking same file re-triggers
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files.length) {
+        handleFile(e.target.files[0]);
+      }
+    });
 
     dropzone.addEventListener('dragover', (e) => {
       e.preventDefault();
@@ -199,8 +217,11 @@ const inspectSnippetBtn = document.getElementById('inspectSnippetBtn');
     dropzone.addEventListener('drop', (e) => {
       e.preventDefault();
       dropzone.classList.remove('dragover');
-      if (e.dataTransfer.files.length) {
+
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
         handleFile(e.dataTransfer.files[0]);
+      } else {
+        window.showToast("In this environment, click the box to select your file.", "info");
       }
     });
   }
@@ -208,13 +229,15 @@ const inspectSnippetBtn = document.getElementById('inspectSnippetBtn');
 
 function handleFile(file) {
   if (!file || !file.name.toLowerCase().endsWith('.docx')) {
-    showToast('Please select a Microsoft Word .docx document.', 'error');
+    window.showToast('Please select a Microsoft Word .docx document.', 'error');
     return;
   }
 
-  // Clear out the snippet text box
+  // Clear out snippet text box and reset button to grey
   const snippetInput = document.getElementById('snippetInput');
+  const inspectSnippetBtn = document.getElementById('inspectSnippetBtn');
   if (snippetInput) snippetInput.value = '';
+  if (inspectSnippetBtn) inspectSnippetBtn.disabled = true;
 
   const reader = new FileReader();
   reader.onload = function(e) {
@@ -241,7 +264,7 @@ async function loadPrimaryFormFromIndex() {
     const primarySection = doc.querySelector('.primary-fields-section') || doc.body;
     const clone = primarySection.cloneNode(true);
 
-    clone.querySelectorAll('button, #docx-preview-container, .preview-section, [type="submit"], h2, #dynamic-fields-section').forEach(el => el.remove());
+    clone.querySelectorAll('button, #docx-preview-container, .preview-section, [type="submit"], h2, #dynamic-fields-section, .header-row').forEach(el => el.remove());
 
     container.innerHTML = "";
     container.appendChild(clone);
@@ -271,7 +294,7 @@ function inspectTemplate(buffer, filename) {
   sandboxDiv.style.display = "none";
   if (dynamicSection) dynamicSection.style.display = "none";
 
-// Clear out any previous preview
+  // Clear out any previous preview
   const previewContainer = document.getElementById('docx-preview-container');
   if (previewContainer) previewContainer.innerHTML = "";
 
@@ -525,7 +548,6 @@ async function runTestRender(shouldDownload) {
   const testData = {};
   const container = document.getElementById('sandbox-form-container');
 
-  // Helper to record base key and space variations without polluting uppercase keys
   function setFieldVariations(baseKey, val) {
     if (!baseKey) return;
     testData[baseKey] = val;
@@ -765,9 +787,9 @@ function isTagSyntaxValid(tagText) {
   
   return doubleQuoteCount % 2 === 0;
 }
+
 /**
  * Wraps raw pasted snippet text into an in-memory DOCX ArrayBuffer
- * so the entire existing validation, preview, and download engine is reused.
  */
 function createDocxFromText(rawText) {
   const zip = new PizZip();

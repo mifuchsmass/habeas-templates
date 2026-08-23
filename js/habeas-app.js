@@ -4,6 +4,31 @@
 
 const TEMPLATE_PATH = 'templates/petition.docx';
 
+// State-to-Facility Directory
+const STATE_FACILITIES = {
+  "Massachusetts": [
+    { value: "Plymouth", text: "Plymouth (Plymouth County Correctional Facility)" },
+    { value: "Burlington", text: "Burlington (Burlington ICE Office)" },
+    { value: "Boston", text: "Boston (Boston Field Office)" }
+  ],
+  "New Hampshire": [
+    { value: "Strafford", text: "Strafford (Strafford County House of Corrections)" },
+    { value: "Berlin", text: "Berlin (FCI Berlin)" }
+  ],
+  "Rhode Island": [
+    { value: "Wyatt", text: "Wyatt (Donald W. Wyatt Detention Facility)" }
+  ],
+  "Vermont": [
+    { value: "Northwest", text: "Northwest (Northwest State Correctional Facility)" }
+  ]
+};
+
+function updateFacilityDropdown(selectEl, state) {
+  if (!selectEl) return;
+  const options = STATE_FACILITIES[state] || [{ value: "N/A", text: "N/A (Standard / Not Applicable)" }];
+  selectEl.innerHTML = options.map(opt => `<option value="${opt.value}">${opt.text}</option>`).join('');
+}
+
 /**
  * Derives comprehensive grammatical pronoun and party tags
  */
@@ -136,7 +161,6 @@ async function initializeDynamicFields() {
       input.type = 'text';
       input.setAttribute('data-dynamic-tag', tag);
 
-      // Smart Contextual Date Placeholder
       if (tag.toLowerCase().includes('date')) {
         input.placeholder = "e.g., May 15, 2026 or on or about May 2024...";
       } else {
@@ -153,6 +177,7 @@ async function initializeDynamicFields() {
     console.warn("Could not auto-discover dynamic fields for default template:", err.message);
   }
 }
+
 /**
  * Collects form values into structured template data (Primary + Dynamic)
  */
@@ -168,7 +193,6 @@ function getFormData() {
   const lastName = document.getElementById('petitioner_last_name')?.value.trim() || '';
   const rawSuffix = document.getElementById('petitioner_suffix')?.value.trim() || '';
 
-  // Clean suffix and format without awkward space before comma
   const cleanSuffix = rawSuffix.replace(/^[,\s]+/, '').trim();
   const baseName = [firstName, middleName, lastName].filter(Boolean).join(' ');
   const fullName = cleanSuffix 
@@ -178,8 +202,12 @@ function getFormData() {
   const selectedPronoun = document.querySelector('input[name="petitioner_pronouns"]:checked')?.value || 'male';
   const pronounData = getPronounData(selectedPronoun);
 
+  const facilityVal = document.getElementById('detention_facility')?.value || '';
+
   const baseFormData = {
     "Jurisdiction": document.getElementById('jurisdiction')?.value || '',
+    "Detention Facility": facilityVal,
+    "Facility": facilityVal,
     "Type of Habeas Petition": petitionVal,
     "Petition Type": petitionVal,
     "Type of Habeas Petition Full": petitionFullText,
@@ -221,9 +249,19 @@ async function runPleadingAction(shouldDownload) {
   });
 }
 
-// Bind Action Buttons
+// Bind Action Buttons and Jurisdiction Change
 document.addEventListener('DOMContentLoaded', () => {
   initializeDynamicFields();
+
+  const jurisdictionSelect = document.getElementById('jurisdiction');
+  const facilitySelect = document.getElementById('detention_facility');
+
+  if (jurisdictionSelect && facilitySelect) {
+    updateFacilityDropdown(facilitySelect, jurisdictionSelect.value);
+    jurisdictionSelect.addEventListener('change', (e) => {
+      updateFacilityDropdown(facilitySelect, e.target.value);
+    });
+  }
 
   const renderBtn = document.getElementById('renderBtn');
   const downloadBtn = document.getElementById('downloadBtn');

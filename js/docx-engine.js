@@ -109,7 +109,7 @@ const DocxEngine = {
       "petitioner", "petitioners", "petitioner's", "petitioners'", "petitioner/petitioners", "petitioner's/petitioners'",
       "individual/individuals", "an individual/individuals",
       "is/are", "was/were", "has/have", "brings/bring", "seeks/seek", "contends/contend", "s",
-      "else", "endif", "end if"
+      "else", "endif", "end if", "detention facility", "facility" 
     ]);
 
     let match;

@@ -8,6 +8,31 @@
 const ACCESS_PASSWORD = "Habeas123!";
 let currentArrayBuffer = null;
 
+// State-to-Facility Directory
+const STATE_FACILITIES = {
+  "Massachusetts": [
+    { value: "Plymouth", text: "Plymouth (Plymouth County Correctional Facility)" },
+    { value: "Burlington", text: "Burlington (Burlington ICE Office)" },
+    { value: "Boston", text: "Boston (Boston Field Office)" }
+  ],
+  "New Hampshire": [
+    { value: "Strafford", text: "Strafford (Strafford County House of Corrections)" },
+    { value: "Berlin", text: "Berlin (FCI Berlin)" }
+  ],
+  "Rhode Island": [
+    { value: "Wyatt", text: "Wyatt (Donald W. Wyatt Detention Facility)" }
+  ],
+  "Vermont": [
+    { value: "Northwest", text: "Northwest (Northwest State Correctional Facility)" }
+  ]
+};
+
+function updateFacilityDropdown(selectEl, state) {
+  if (!selectEl) return;
+  const options = STATE_FACILITIES[state] || [{ value: "N/A", text: "N/A (Standard / Not Applicable)" }];
+  selectEl.innerHTML = options.map(opt => `<option value="${opt.value}">${opt.text}</option>`).join('');
+}
+
 /**
  * Derives comprehensive grammatical pronoun and party tags
  */
@@ -127,7 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const inspectSnippetBtn = document.getElementById('inspectSnippetBtn');
   const snippetInput = document.getElementById('snippetInput');
 
-  // 1. Snippet Input & Button Listener (with Fresh Error/Preview Reset)
+  // 1. Snippet Input & Button Listener
   if (inspectSnippetBtn && snippetInput) {
     snippetInput.addEventListener('input', () => {
       inspectSnippetBtn.disabled = !snippetInput.value.trim();
@@ -136,11 +161,13 @@ document.addEventListener('DOMContentLoaded', () => {
     inspectSnippetBtn.addEventListener('click', () => {
       const text = snippetInput.value.trim();
       if (!text) {
-        window.showToast("Please paste some text into the box to inspect.", "error");
+        if (typeof showToast === 'function') {
+          showToast("Please paste some text into the box to inspect.", "error");
+        }
         return;
       }
 
-      // Clear any previous error cards, preview, and sandbox
+      // Reset state for new inspection
       const resultsDiv = document.getElementById('results');
       const previewContainer = document.getElementById('docx-preview-container');
       const sandboxDiv = document.getElementById('sandbox');
@@ -192,10 +219,10 @@ document.addEventListener('DOMContentLoaded', () => {
   if (renderBtn) renderBtn.addEventListener('click', () => runTestRender(false));
   if (downloadBtn) downloadBtn.addEventListener('click', () => runTestRender(true));
 
-  // 2. Click-to-Browse with Input Reset (Always re-triggers on selection)
+  // 2. Dropzone & File Input Handlers
   if (dropzone && fileInput) {
     dropzone.addEventListener('click', () => {
-      fileInput.value = ''; // Clear previous selection so picking same file re-triggers
+      fileInput.value = '';
       fileInput.click();
     });
 
@@ -205,35 +232,63 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    dropzone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropzone.classList.add('dragover');
+    ['dragenter', 'dragover'].forEach(name => {
+      dropzone.addEventListener(name, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.add('dragover');
+      });
     });
 
-    dropzone.addEventListener('dragleave', () => {
-      dropzone.classList.remove('dragover');
+    ['dragleave', 'dragend'].forEach(name => {
+      dropzone.addEventListener(name, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.remove('dragover');
+      });
     });
 
     dropzone.addEventListener('drop', (e) => {
       e.preventDefault();
+      e.stopPropagation();
       dropzone.classList.remove('dragover');
 
-      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        handleFile(e.dataTransfer.files[0]);
+      let droppedFile = null;
+      if (e.dataTransfer) {
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          droppedFile = e.dataTransfer.files[0];
+        } else if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+          const item = e.dataTransfer.items[0];
+          if (item.kind === 'file') {
+            droppedFile = item.getAsFile();
+          }
+        }
+      }
+
+      if (droppedFile) {
+        handleFile(droppedFile);
       } else {
-        window.showToast("In this environment, click the box to select your file.", "info");
+        if (typeof showToast === 'function') {
+          showToast("Could not capture file from drag. Click the box to browse instead.", "info");
+        }
       }
     });
   }
 });
 
 function handleFile(file) {
-  if (!file || !file.name.toLowerCase().endsWith('.docx')) {
-    window.showToast('Please select a Microsoft Word .docx document.', 'error');
+  if (!file) return;
+
+  if (!file.name.toLowerCase().endsWith('.docx')) {
+    if (typeof showToast === 'function') {
+      showToast('Please select a Microsoft Word .docx document.', 'error');
+    } else {
+      alert('Please select a Microsoft Word .docx document.');
+    }
     return;
   }
 
-  // Clear out snippet text box and reset button to grey
+  // Clear out snippet text box and reset button
   const snippetInput = document.getElementById('snippetInput');
   const inspectSnippetBtn = document.getElementById('inspectSnippetBtn');
   if (snippetInput) snippetInput.value = '';
@@ -243,6 +298,11 @@ function handleFile(file) {
   reader.onload = function(e) {
     currentArrayBuffer = e.target.result;
     inspectTemplate(currentArrayBuffer, file.name);
+  };
+  reader.onerror = function() {
+    if (typeof showToast === 'function') {
+      showToast('Failed to read file from disk.', 'error');
+    }
   };
   reader.readAsArrayBuffer(file);
 }
@@ -268,14 +328,24 @@ async function loadPrimaryFormFromIndex() {
 
     container.innerHTML = "";
     container.appendChild(clone);
+
+    // Bind Sandbox Jurisdiction Change to Facility Dropdown
+    const sandboxJurisdiction = container.querySelector('#jurisdiction');
+    const sandboxFacility = container.querySelector('#detention_facility');
+    if (sandboxJurisdiction && sandboxFacility) {
+      updateFacilityDropdown(sandboxFacility, sandboxJurisdiction.value);
+      sandboxJurisdiction.addEventListener('change', (e) => {
+        updateFacilityDropdown(sandboxFacility, e.target.value);
+      });
+    }
   } catch (err) {
     console.warn("Auto-sync fallback: Using default primary fields", err);
     container.innerHTML = `
       <div class="sandbox-grid">
+        <div class="field"><label>Jurisdiction</label><select id="jurisdiction"><option value="Massachusetts">Massachusetts</option><option value="New Hampshire">New Hampshire</option></select></div>
+        <div class="field"><label>Detention Facility</label><select id="detention_facility"><option value="Plymouth">Plymouth</option><option value="Burlington">Burlington</option></select></div>
         <div class="field"><label>Petitioner Name</label><input type="text" id="Petitioner Name" value="Jane Marie Doe"></div>
         <div class="field"><label>Case Number</label><input type="text" id="Case Number" value="2026-CV-04321"></div>
-        <div class="field"><label>Jurisdiction</label><select id="Jurisdiction"><option value="Massachusetts">Massachusetts</option><option value="Rhode Island">Rhode Island</option></select></div>
-        <div class="field"><label>Type of Habeas Petition</label><select id="Type of Habeas Petition"><option value="GO Class">GO Class</option><option value="Non-GO">Non-GO</option></select></div>
       </div>
     `;
   }
@@ -294,7 +364,6 @@ function inspectTemplate(buffer, filename) {
   sandboxDiv.style.display = "none";
   if (dynamicSection) dynamicSection.style.display = "none";
 
-  // Clear out any previous preview
   const previewContainer = document.getElementById('docx-preview-container');
   if (previewContainer) previewContainer.innerHTML = "";
 
@@ -451,8 +520,12 @@ function inspectTemplate(buffer, filename) {
         </div>
       `;
 
-      // Discover and inject dynamic custom fields into sandbox
-      const discovered = DocxEngine.extractCustomFields(xmlContent);
+      // Safely discover and inject dynamic custom fields
+      let discovered = [];
+      if (typeof DocxEngine !== 'undefined' && typeof DocxEngine.extractCustomFields === 'function') {
+        discovered = DocxEngine.extractCustomFields(xmlContent);
+      }
+
       if (discovered.length > 0 && dynamicContainer && dynamicSection) {
         dynamicContainer.innerHTML = "";
         discovered.forEach(tag => {
@@ -466,7 +539,6 @@ function inspectTemplate(buffer, filename) {
           input.type = 'text';
           input.setAttribute('data-dynamic-tag', tag);
 
-          // Option A: Smart Date Placeholder + Sandbox Sample Value
           if (tag.toLowerCase().includes('date')) {
             input.placeholder = "e.g., May 15, 2026 or on or about May 2024...";
             input.value = "May 12, 2024";
@@ -597,6 +669,12 @@ async function runTestRender(shouldDownload) {
     const pronounData = getPronounData(pronounChoice);
     Object.assign(testData, pronounData);
 
+    const facility = testData['detention_facility'] || testData['detention facility'] || testData['facility'] || '';
+    if (facility) {
+      setFieldVariations('Detention Facility', facility);
+      setFieldVariations('Facility', facility);
+    }
+
     const def = testData['defendant'] || testData['defendant name'] || testData['respondent name'];
     if (def) {
       setFieldVariations('Defendant Name', def);
@@ -694,7 +772,6 @@ async function runTestRender(shouldDownload) {
             // 1. EXACT CASE MATCH FIRST
             if (scope[cleanTag] !== undefined && scope[cleanTag] !== null && scope[cleanTag] !== "") {
               const val = scope[cleanTag];
-              // Smart Caps: If tag was typed in [ALL CAPS], output in ALL CAPS
               if (typeof val === "string" && cleanTag === cleanTag.toUpperCase() && /[A-Z]/.test(cleanTag)) {
                 return val.toUpperCase();
               }
@@ -709,7 +786,6 @@ async function runTestRender(shouldDownload) {
                 if (val === "" || val === undefined || val === null) {
                   return "*** MISSING DATA ***";
                 }
-                // Smart Caps: If tag was typed in [ALL CAPS], output in ALL CAPS
                 if (typeof val === "string" && cleanTag === cleanTag.toUpperCase() && /[A-Z]/.test(cleanTag)) {
                   return val.toUpperCase();
                 }
@@ -734,7 +810,7 @@ async function runTestRender(shouldDownload) {
                 expr = expr.replace(new RegExp('\\b' + escaped + '\\b', 'gi'), 'scope["' + v + '"]');
               });
 
-              return new Function("scope", "return Boolean(" + expr + ");")(scope);
+              return new Function("scope", `return Boolean(${expr});`)(scope);
             } catch (e) {
               return false;
             }
@@ -746,7 +822,7 @@ async function runTestRender(shouldDownload) {
     doc.render(testData);
     const out = doc.getZip().generate({ type: "blob" });
 
-    // If Download Compiled DOCX was clicked
+    // Download Compiled DOCX
     if (shouldDownload === true) {
       const first = testData['first name'] || testData['petitioner_first_name'] || testData['petitioner first name'] || '';
       const middle = testData['middle name'] || testData['petitioner_middle_name'] || testData['petitioner middle name'] || '';

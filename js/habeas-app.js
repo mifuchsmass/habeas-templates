@@ -4,133 +4,6 @@
 
 const TEMPLATE_PATH = 'templates/petition.docx';
 
-// State-to-Facility Directory
-const STATE_FACILITIES = {
-  "Massachusetts": [
-    { value: "Plymouth", text: "Plymouth (Plymouth County Correctional Facility)" },
-    { value: "Burlington", text: "Burlington (Burlington ICE Office)" },
-    { value: "Boston", text: "Boston (Boston Field Office)" }
-  ],
-  "New Hampshire": [
-    { value: "Strafford", text: "Strafford (Strafford County House of Corrections)" },
-    { value: "Berlin", text: "Berlin (FCI Berlin)" }
-  ],
-  "Rhode Island": [
-    { value: "Wyatt", text: "Wyatt (Donald W. Wyatt Detention Facility)" }
-  ],
-  "Vermont": [
-    { value: "Northwest", text: "Northwest (Northwest State Correctional Facility)" }
-  ]
-};
-
-function updateFacilityDropdown(selectEl, state) {
-  if (!selectEl) return;
-  const options = STATE_FACILITIES[state] || [{ value: "N/A", text: "N/A (Standard / Not Applicable)" }];
-  selectEl.innerHTML = options.map(opt => `<option value="${opt.value}">${opt.text}</option>`).join('');
-}
-
-/**
- * Derives comprehensive grammatical pronoun and party tags
- */
-function getPronounData(choice) {
-  const map = {
-    male: {
-      he: 'he', He: 'He', HE: 'HE',
-      him: 'him', Him: 'Him', HIM: 'HIM',
-      his: 'his', His: 'His', HIS: 'HIS',
-      hers: 'his', Hers: 'His', HERS: 'HIS',
-      himself: 'himself', Himself: 'Himself', HIMSELF: 'HIMSELF',
-      petitioner: 'Petitioner', petitioner_lower: 'petitioner', PETITIONER: 'PETITIONER',
-      petitioner_possessive: "Petitioner's", PETITIONER_POSSESSIVE: "PETITIONER'S",
-      individual: 'an individual',
-      is_are: 'is', was_were: 'was', has_have: 'has',
-      s_suffix: 's',
-      brings_bring: 'brings', seeks_seek: 'seeks', contends_contend: 'contends'
-    },
-    female: {
-      he: 'she', He: 'She', HE: 'SHE',
-      him: 'her', Him: 'Her', HIM: 'HER',
-      his: 'her', His: 'Her', HIS: 'HER',
-      hers: 'hers', Hers: 'Hers', HERS: 'HERS',
-      himself: 'herself', Himself: 'Herself', HIMSELF: 'HERSELF',
-      petitioner: 'Petitioner', petitioner_lower: 'petitioner', PETITIONER: 'PETITIONER',
-      petitioner_possessive: "Petitioner's", PETITIONER_POSSESSIVE: "PETITIONER'S",
-      individual: 'an individual',
-      is_are: 'is', was_were: 'was', has_have: 'has',
-      s_suffix: 's',
-      brings_bring: 'brings', seeks_seek: 'seeks', contends_contend: 'contends'
-    },
-    nonbinary: {
-      he: 'they', He: 'They', HE: 'THEY',
-      him: 'them', Him: 'Them', HIM: 'THEM',
-      his: 'their', His: 'Their', HIS: 'THEIR',
-      hers: 'theirs', Hers: 'Theirs', HERS: 'THEIRS',
-      himself: 'themselves', Himself: 'Themselves', HIMSELF: 'THEMSELVES',
-      petitioner: 'Petitioner', petitioner_lower: 'petitioner', PETITIONER: 'PETITIONER',
-      petitioner_possessive: "Petitioner's", PETITIONER_POSSESSIVE: "PETITIONER'S",
-      individual: 'an individual',
-      is_are: 'are', was_were: 'were', has_have: 'have',
-      s_suffix: 's',
-      brings_bring: 'brings', seeks_seek: 'seeks', contends_contend: 'contends'
-    },
-    petitioner: {
-      he: 'Petitioner', He: 'Petitioner', HE: 'PETITIONER',
-      him: 'Petitioner', Him: 'Petitioner', HIM: 'PETITIONER',
-      his: "Petitioner's", His: "Petitioner's", HIS: "PETITIONER'S",
-      hers: "Petitioner's", Hers: "Petitioner's", HERS: "PETITIONER'S",
-      himself: 'Petitioner', Himself: 'Petitioner', HIMSELF: 'PETITIONER',
-      petitioner: 'Petitioner', petitioner_lower: 'petitioner', PETITIONER: 'PETITIONER',
-      petitioner_possessive: "Petitioner's", PETITIONER_POSSESSIVE: "PETITIONER'S",
-      individual: 'an individual',
-      is_are: 'is', was_were: 'was', has_have: 'has',
-      s_suffix: 's',
-      brings_bring: 'brings', seeks_seek: 'seeks', contends_contend: 'contends'
-    }
-  };
-
-  const p = map[choice] || map.male;
-
-  return {
-    "he": p.he, "He": p.He, "HE": p.HE,
-    "him": p.him, "Him": p.Him, "HIM": p.HIM,
-    "his": p.his, "His": p.His, "HIS": p.HIS,
-    "hers": p.hers, "Hers": p.Hers, "HERS": p.HERS,
-    "himself": p.himself, "Himself": p.Himself, "HIMSELF": p.HIMSELF,
-    "he/she": p.he, "He/She": p.He, "HE/SHE": p.HE,
-    "his/her": p.his, "His/Her": p.His, "HIS/HER": p.HIS,
-    "him/her": p.him, "Him/Her": p.Him, "HIM/HER": p.HIM,
-    "himself/herself": p.himself, "Himself/Herself": p.Himself, "HIMSELF/HERSELF": p.HIMSELF,
-    "his/hers": p.hers,
-
-    "Petitioner": p.petitioner,
-    "petitioner": p.petitioner_lower,
-    "PETITIONER": p.PETITIONER,
-    "Petitioner's": p.petitioner_possessive,
-    "petitioner's": p.petitioner_possessive.toLowerCase(),
-    "PETITIONER'S": p.PETITIONER_POSSESSIVE,
-    "Petitioner/Petitioners": p.petitioner,
-    "petitioner/petitioners": p.petitioner_lower,
-    "PETITIONER/PETITIONERS": p.PETITIONER,
-    "Petitioner's/Petitioners'": p.petitioner_possessive,
-    "petitioner's/petitioners'": p.petitioner_possessive.toLowerCase(),
-
-    "Pronoun Subject": p.He, "pronoun subject": p.he,
-    "Pronoun Object": p.Him, "pronoun object": p.him,
-    "Pronoun Possessive": p.His, "pronoun possessive": p.his,
-    "Pronoun Reflexive": p.Himself, "pronoun reflexive": p.himself,
-
-    "individual/individuals": p.individual,
-    "an individual/individuals": p.individual,
-
-    "is/are": p.is_are, "was/were": p.was_were, "has/have": p.has_have,
-    "brings/bring": p.brings_bring, "seeks/seek": p.seeks_seek, "contends/contend": p.contends_contend,
-    "s": p.s_suffix,
-
-    "Pronouns": choice,
-    "Gender": choice
-  };
-}
-
 /**
  * Automatically loads the default template and renders discovered dynamic fields
  */
@@ -200,7 +73,7 @@ function getFormData() {
     : baseName;
 
   const selectedPronoun = document.querySelector('input[name="petitioner_pronouns"]:checked')?.value || 'male';
-  const pronounData = getPronounData(selectedPronoun);
+  const pronounData = DocxEngine.getPronounData(selectedPronoun);
 
   const facilityVal = document.getElementById('detention_facility')?.value || '';
 
@@ -257,9 +130,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const facilitySelect = document.getElementById('detention_facility');
 
   if (jurisdictionSelect && facilitySelect) {
-    updateFacilityDropdown(facilitySelect, jurisdictionSelect.value);
+    DocxEngine.updateFacilityDropdown(facilitySelect, jurisdictionSelect.value);
     jurisdictionSelect.addEventListener('change', (e) => {
-      updateFacilityDropdown(facilitySelect, e.target.value);
+      DocxEngine.updateFacilityDropdown(facilitySelect, e.target.value);
     });
   }
 

@@ -3,10 +3,16 @@
    ========================================================================== */
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  margin: 40px;
+  margin: 40px auto;
   max-width: 900px;
+  padding: 0 20px;
   line-height: 1.6;
-  color: #333;
+  color: #334155;
+  background-color: #ffffff;
+}
+
+h1, h2, h3, h4 {
+  color: #0f172a;
 }
 
 .field {
@@ -20,10 +26,11 @@ label {
   color: #1e293b;
 }
 
-input, select {
+input, select, textarea {
   width: 100%;
   padding: 10px;
   font-size: 14px;
+  font-family: inherit;
   box-sizing: border-box;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
@@ -31,7 +38,11 @@ input, select {
   color: #0f172a;
 }
 
-input:focus, select:focus {
+textarea {
+  resize: vertical;
+}
+
+input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: #0056b3;
   box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.15);
@@ -127,12 +138,15 @@ input:focus, select:focus {
 }
 
 @media (max-width: 640px) {
-  .dynamic-fields-grid {
+  .dynamic-fields-grid,
+  .name-grid {
     grid-template-columns: 1fr;
   }
 }
 
-/* Base Buttons */
+/* ==========================================================================
+   BUTTONS & ACTION COMMAND CENTER
+   ========================================================================== */
 button.btn-primary {
   width: 100%;
   padding: 12px 20px;
@@ -143,27 +157,102 @@ button.btn-primary {
   border: none;
   border-radius: 6px;
   cursor: pointer;
+  box-sizing: border-box;
+  transition: background-color 0.15s ease;
 }
 
 button.btn-primary:hover {
   background: #004085;
 }
 
-button.btn-primary:disabled {
-  background: #94a3b8;
+button.btn-primary:disabled,
+.btn-render:disabled,
+.btn-download:disabled {
+  background: #94a3b8 !important;
   cursor: not-allowed;
   opacity: 0.65;
 }
 
+.btn-render,
+.btn-download {
+  flex: 1;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: bold;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  box-sizing: border-box;
+  text-align: center;
+  transition: background-color 0.15s ease;
+}
+
+.btn-render {
+  background-color: #0d6efd;
+}
+.btn-render:hover {
+  background-color: #0b5ed7;
+}
+
+.btn-download {
+  background-color: #198754;
+}
+.btn-download:hover {
+  background-color: #157347;
+}
+
+.btn-secondary {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: all 0.15s ease;
+}
+
+.btn-secondary:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.action-block {
+  margin-top: 24px;
+  margin-bottom: 20px;
+}
+
+.sandbox-actions,
+.utility-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.sandbox-actions button,
+.utility-actions button {
+  flex: 1;
+}
+
 #docx-preview-container {
   margin-top: 25px;
-  border: 1px solid #ccc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
   overflow-x: auto;
+  min-height: 50px;
+  background: #ffffff;
 }
 
 .preview-skipped,
 .preview-loading {
-  color: #888;
+  color: #64748b;
   font-style: italic;
   padding: 12px;
 }
@@ -250,6 +339,7 @@ button.btn-primary:disabled {
   cursor: pointer;
   margin-bottom: 24px;
   transition: all 0.2s ease;
+  box-sizing: border-box;
 }
 
 .dropzone:hover,
@@ -266,6 +356,7 @@ button.btn-primary:disabled {
 
 .dropzone-highlight-text {
   color: #0056b3;
+  font-weight: 700;
 }
 
 .dropzone * {
@@ -283,7 +374,7 @@ button.btn-primary:disabled {
 }
 
 .studio-subtitle {
-  color: #666;
+  color: #64748b;
   font-size: 14px;
   margin-bottom: 24px;
 }
@@ -345,6 +436,7 @@ button.btn-primary:disabled {
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 12px;
+  font-family: monospace;
 }
 
 .snippet-box {
@@ -387,7 +479,7 @@ button.btn-primary:disabled {
 /* 4. Sandbox Grid & Actions */
 .sandbox {
   margin-top: 32px;
-  border-top: 2px solid #eee;
+  border-top: 2px solid #e2e8f0;
   padding-top: 24px;
   display: none;
 }
@@ -398,7 +490,7 @@ button.btn-primary:disabled {
 
 .sandbox-header p {
   font-size: 13px;
-  color: #666;
+  color: #64748b;
   margin: 0 0 16px 0;
 }
 
@@ -409,57 +501,8 @@ button.btn-primary:disabled {
   margin-bottom: 18px;
 }
 
-.sandbox-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 18px;
-  margin-bottom: 16px;
-}
-
-.sandbox-actions button {
-  flex: 1;
-  padding: 12px 16px;
-  font-size: 14px;
-  font-weight: bold;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.btn-render {
-  background-color: #0d6efd;
-}
-.btn-render:hover {
-  background-color: #0b5ed7;
-}
-
-.btn-download {
-  background-color: #198754;
-}
-.btn-download:hover {
-  background-color: #157347;
-}
-/* Bottom Action & Utility Layout */
-.action-block {
-  margin-top: 24px;
-  margin-bottom: 20px;
-}
-
-.utility-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 10px;
-}
-
-.utility-actions .btn-secondary {
-  flex: 1;
-  justify-content: center;
-  padding: 8px 12px;
-  font-size: 13px;
-}
 /* ==========================================================================
-   STYLED TOAST NOTIFICATIONS (Replaces browser alert popups)
+   TOAST NOTIFICATIONS
    ========================================================================== */
 #toast-container {
   position: fixed;
@@ -515,22 +558,4 @@ button.btn-primary:disabled {
     opacity: 1;
     transform: translateY(0);
   }
-}
-textarea {
-  width: 100%;
-  padding: 10px;
-  font-size: 14px;
-  font-family: inherit;
-  box-sizing: border-box;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #0f172a;
-  resize: vertical;
-}
-
-textarea:focus {
-  outline: none;
-  border-color: #0056b3;
-  box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.15);
 }

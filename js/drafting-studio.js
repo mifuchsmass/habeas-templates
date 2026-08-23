@@ -485,10 +485,15 @@ function escapeHtml(text) {
 }
 
 // ============================================================================
-// 5. LIVE TEST SANDBOX RENDERER
+// 5. LIVE TEST SANDBOX RENDERER (Delegates compilation to DocxEngine)
 // ============================================================================
 async function runTestRender(shouldDownload) {
-  if (!currentArrayBuffer) return;
+  if (!currentArrayBuffer) {
+    if (typeof showToast === 'function') {
+      showToast("No document or snippet loaded to render.", "error");
+    }
+    return;
+  }
   
   const testData = {};
   const container = document.getElementById('sandbox-form-container');
@@ -501,6 +506,7 @@ async function runTestRender(shouldDownload) {
   }
 
   // 1. Gather Pinned Primary Data
+  let fullName = "Draft";
   if (container) {
     container.querySelectorAll('input, select, textarea').forEach(el => {
       if (el.type === 'radio' && !el.checked) return;
@@ -525,9 +531,9 @@ async function runTestRender(shouldDownload) {
 
     const cleanSuffix = rawSuffix.replace(/^[,\s]+/, '').trim();
     const baseName = [first, middle, last].filter(Boolean).join(' ');
-    const fullName = cleanSuffix 
+    fullName = cleanSuffix 
       ? (baseName ? `${baseName}, ${cleanSuffix}` : cleanSuffix)
-      : baseName;
+      : (baseName || "Draft");
 
     if (first || last) {
       setFieldVariations('Petitioner Name', fullName);
@@ -568,158 +574,15 @@ async function runTestRender(shouldDownload) {
     setFieldVariations(tag, val);
   });
 
-  const optionAliases = {};
-  document.querySelectorAll('#sandbox-form-container select option').forEach(opt => {
-    const val = opt.value;
-    const fullText = opt.text.trim();
-    const textWithoutParens = fullText.replace(/\s*\([^)]*\)\s*$/, '').trim();
-    if (val) {
-      optionAliases[fullText.toLowerCase()] = val;
-      optionAliases[textWithoutParens.toLowerCase()] = val;
-    }
+  // 3. Delegate directly to DocxEngine (replaces the ~100 duplicate lines)
+  await DocxEngine.generate({
+    buffer: currentArrayBuffer,
+    data: testData,
+    outputFilename: `Habeas Petition ${fullName}.docx`,
+    selectElementForAliases: true,
+    download: shouldDownload,
+    previewContainerId: 'docx-preview-container'
   });
-
-  try {
-    const zip = new PizZip(currentArrayBuffer);
-    
-    Object.keys(zip.files).forEach(filename => {
-      if (filename.startsWith("word/") && filename.endsWith(".xml")) {
-        let xml = zip.files[filename].asText().replace(/\[[^\]]*?\]/g, match => match.replace(/<[^>]+>/g, ''));
-        const tagRegex = /\[\s*(IF\s+[^\]]+|ELSE\s+IF\s+[^\]]+|ELSEIF\s+[^\]]+|ELSE|END\s+IF)\s*\]/gi;
-        const stack = [];
-        
-        xml = xml.replace(tagRegex, (m, tagBody) => {
-          const trimmed = tagBody.trim();
-          const sanitize = (c) => c.trim()
-            .replace(/[\u201C\u201D]/g, '"')
-            .replace(/[\u2018\u2019]/g, "'")
-            .replace(/\band\b/gi, '&&')
-            .replace(/\bor\b/gi, '||')
-            .replace(/\s+=\s+/g, ' == ');
-          
-          if (/^IF\s+/i.test(trimmed)) {
-            const cond = sanitize(trimmed.replace(/^IF\s+/i, ''));
-            stack.push({ conditions: [cond], hasElse: false });
-            return `[#${cond}]`;
-          }
-          if (/^ELSE\s*IF\s+/i.test(trimmed) || /^ELSEIF\s+/i.test(trimmed)) {
-            if (!stack.length) return m;
-            const f = stack[stack.length - 1];
-            if (f.hasElse) return m;
-            const cond = sanitize(trimmed.replace(/^(ELSE\s*IF|ELSEIF)\s+/i, ''));
-            const prev = f.conditions[f.conditions.length - 1];
-            f.conditions.push(cond);
-            return `[/${prev}][^${prev}][#${cond}]`;
-          }
-          if (/^ELSE$/i.test(trimmed)) {
-            if (!stack.length) return m;
-            const f = stack[stack.length - 1];
-            if (f.hasElse) return m;
-            f.hasElse = true;
-            const prev = f.conditions[f.conditions.length - 1];
-            return `[/${prev}][^${prev}]`;
-          }
-          if (/^END\s+IF$/i.test(trimmed)) {
-            if (!stack.length) return m;
-            const f = stack.pop();
-            let cl = "";
-            for (let i = f.conditions.length - 1; i >= 0; i--) cl += `[/${f.conditions[i]}]`;
-            return cl;
-          }
-          return m;
-        });
-        zip.file(filename, xml);
-      }
-    });
-
-    const doc = new window.docxtemplater(zip, {
-      delimiters: { start: '[', end: ']' },
-      paragraphLoop: true,
-      linebreaks: true,
-      parser: (tag) => {
-        const cleanTag = tag.replace(/^[#\/\^]/, '').trim();
-        return {
-          get(scope) {
-            if (!cleanTag) return "";
-
-            // 1. EXACT CASE MATCH FIRST
-            if (scope[cleanTag] !== undefined && scope[cleanTag] !== null && scope[cleanTag] !== "") {
-              const val = scope[cleanTag];
-              if (typeof val === "string" && cleanTag === cleanTag.toUpperCase() && /[A-Z]/.test(cleanTag)) {
-                return val.toUpperCase();
-              }
-              return val;
-            }
-
-            // 2. Direct Key Match (case-insensitive fallback)
-            const target = cleanTag.toLowerCase().replace(/[-_\s]/g, '');
-            for (const k of Object.keys(scope)) {
-              if (k.toLowerCase().replace(/[-_\s]/g, '') === target) {
-                const val = scope[k];
-                if (val === "" || val === undefined || val === null) {
-                  return "*** MISSING DATA ***";
-                }
-                if (typeof val === "string" && cleanTag === cleanTag.toUpperCase() && /[A-Z]/.test(cleanTag)) {
-                  return val.toUpperCase();
-                }
-                return val;
-              }
-            }
-
-            const isCondition = /[=!<>]|\b(and|or)\b|&&|\|\|/i.test(cleanTag);
-            if (!isCondition) {
-              return "*** MISSING DATA ***";
-            }
-
-            try {
-              let expr = cleanTag;
-              expr = expr.replace(/(["'])(.*?)\1/g, (m, q, text) => {
-                const lower = text.trim().toLowerCase();
-                return optionAliases[lower] ? `"${optionAliases[lower]}"` : m;
-              });
-
-              Object.keys(scope).sort((a, b) => b.length - a.length).forEach(v => {
-                const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                expr = expr.replace(new RegExp('\\b' + escaped + '\\b', 'gi'), 'scope["' + v + '"]');
-              });
-
-              return new Function("scope", `return Boolean(${expr});`)(scope);
-            } catch (e) {
-              return false;
-            }
-          }
-        };
-      }
-    });
-
-    doc.render(testData);
-    const out = doc.getZip().generate({ type: "blob" });
-
-    // Download Compiled DOCX
-    if (shouldDownload === true) {
-      const first = testData['first name'] || testData['petitioner_first_name'] || testData['petitioner first name'] || '';
-      const middle = testData['middle name'] || testData['petitioner_middle_name'] || testData['petitioner middle name'] || '';
-      const last = testData['last name'] || testData['petitioner_last_name'] || testData['petitioner last name'] || '';
-      const suffix = testData['suffix'] || testData['petitioner_suffix'] || testData['petitioner suffix'] || '';
-      const fullName = [first, middle, last, suffix].filter(Boolean).join(' ');
-
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(out);
-      link.download = `Habeas Petition ${fullName || "Draft"}.docx`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      return;
-    }
-
-    const previewContainer = document.getElementById('docx-preview-container');
-    previewContainer.innerHTML = "";
-    await docx.renderAsync(out, previewContainer);
-  } catch (err) {
-    document.getElementById('docx-preview-container').innerHTML = `
-      <p class="preview-error">Render Error: ${escapeHtml(err.message)}</p>
-    `;
-  }
 }
 
 function isTagSyntaxValid(tagText) {

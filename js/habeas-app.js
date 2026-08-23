@@ -5,6 +5,19 @@
 const TEMPLATE_PATH = 'templates/petition.docx';
 
 /**
+ * Formats a raw bracket tag (e.g., 'date_of_entry' or 'iceFieldOffice') into a readable UI label.
+ */
+function formatTagToLabel(tag) {
+  if (!tag) return "";
+  return tag
+    .replace(/[-_]/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/**
  * Automatically loads the default template and renders discovered dynamic fields
  */
 async function initializeDynamicFields() {
@@ -28,7 +41,7 @@ async function initializeDynamicFields() {
       fieldWrapper.className = 'field';
 
       const label = document.createElement('label');
-      label.textContent = tag + ':';
+      label.textContent = `${formatTagToLabel(tag)}:`;
 
       const input = document.createElement('input');
       input.type = 'text';
@@ -37,7 +50,7 @@ async function initializeDynamicFields() {
       if (tag.toLowerCase().includes('date')) {
         input.placeholder = "e.g., May 15, 2026 or on or about May 2024...";
       } else {
-        input.placeholder = `Enter ${tag}...`;
+        input.placeholder = `Enter ${formatTagToLabel(tag)}...`;
       }
 
       fieldWrapper.appendChild(label);
@@ -70,7 +83,7 @@ function getFormData() {
   const baseName = [firstName, middleName, lastName].filter(Boolean).join(' ');
   const fullName = cleanSuffix 
     ? (baseName ? `${baseName}, ${cleanSuffix}` : cleanSuffix)
-    : baseName;
+    : (baseName || "Draft");
 
   const selectedPronoun = document.querySelector('input[name="petitioner_pronouns"]:checked')?.value || 'male';
   const pronounData = DocxEngine.getPronounData(selectedPronoun);
@@ -108,18 +121,47 @@ function getFormData() {
 }
 
 /**
- * Handles action execution for preview or download
+ * Handles action execution for preview or download with user feedback
  */
 async function runPleadingAction(shouldDownload) {
-  const { formData, fullName } = getFormData();
+  const renderBtn = document.getElementById('renderBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const activeBtn = shouldDownload ? downloadBtn : renderBtn;
+  const originalText = activeBtn ? activeBtn.innerHTML : '';
 
-  await DocxEngine.generate({
-    templatePath: TEMPLATE_PATH,
-    data: formData,
-    outputFilename: `Habeas Petition ${fullName || "Draft"}.docx`,
-    selectElementForAliases: true,
-    download: shouldDownload
-  });
+  try {
+    if (activeBtn) {
+      activeBtn.disabled = true;
+      activeBtn.innerHTML = shouldDownload ? 'Compiling DOCX... ⏳' : 'Generating Preview... ⏳';
+    }
+
+    const { formData, fullName } = getFormData();
+
+    await DocxEngine.generate({
+      templatePath: TEMPLATE_PATH,
+      data: formData,
+      outputFilename: `Habeas Petition ${fullName}.docx`,
+      selectElementForAliases: true,
+      download: shouldDownload,
+      previewContainerId: 'docx-preview-container'
+    });
+
+    if (shouldDownload && typeof showToast === 'function') {
+      showToast(`Downloaded Habeas Petition ${fullName}.docx`, 'success');
+    }
+  } catch (err) {
+    if (typeof showToast === 'function') {
+      showToast(`Error: ${err.message}`, 'error');
+    } else {
+      alert(`Error: ${err.message}`);
+    }
+    console.error(err);
+  } finally {
+    if (activeBtn) {
+      activeBtn.disabled = false;
+      activeBtn.innerHTML = originalText;
+    }
+  }
 }
 
 // Bind Action Buttons and Jurisdiction Change

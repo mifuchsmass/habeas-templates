@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Habeas Petition Generator</title>
   <link rel="stylesheet" href="css/styles.css">
   
@@ -31,6 +32,7 @@
         <option value="Vermont">Vermont</option>
       </select>
     </div>
+
     <!-- Detention Facility (Dynamic options based on State) -->
     <div class="field" id="facility_field_wrapper">
       <label for="detention_facility">Detention Facility:</label>
@@ -40,6 +42,7 @@
         <option value="Boston">Boston (Boston Field Office)</option>
       </select>
     </div>
+
     <div class="field">
       <label for="petition_type">Type of Habeas Petition:</label>
       <select id="petition_type">
@@ -99,7 +102,7 @@
     <div id="dynamic-fields-container" class="dynamic-fields-grid"></div>
   </div>
 
-   <!-- Action Command Center -->
+  <!-- Action Command Center -->
   <div class="action-block">
     <!-- Primary Actions -->
     <div class="sandbox-actions">

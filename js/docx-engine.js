@@ -4,7 +4,7 @@
 const DocxEngine = {
   templateCache: {},
 
-// ==========================================================================
+  // ==========================================================================
   // SHARED DOMAIN DATA (Single Source of Truth)
   // ==========================================================================
   STATE_FACILITIES: {
@@ -265,19 +265,87 @@ const DocxEngine = {
     return discovered;
   },
 
-  async generate({ templatePath, data, outputFilename, selectElementForAliases, download = false }) {
-    const container = document.getElementById('docx-preview-container');
+  createCustomParser(optionAliases = {}) {
+    return (tag) => {
+      const cleanTag = tag.replace(/^[#\/\^]/, '').trim();
+      return {
+        get(scope) {
+          if (!cleanTag) return "";
+
+          // 1. EXACT CASE MATCH FIRST
+          if (scope[cleanTag] !== undefined && scope[cleanTag] !== null && scope[cleanTag] !== "") {
+            const val = scope[cleanTag];
+            if (typeof val === "string" && cleanTag === cleanTag.toUpperCase() && /[A-Z]/.test(cleanTag)) {
+              return val.toUpperCase();
+            }
+            return val;
+          }
+
+          // 2. Case-insensitive key match fallback
+          const target = cleanTag.toLowerCase().replace(/[-_\s]/g, '');
+          for (const k of Object.keys(scope)) {
+            if (k.toLowerCase().replace(/[-_\s]/g, '') === target) {
+              const val = scope[k];
+              if (val === "" || val === undefined || val === null) {
+                return "*** MISSING DATA ***";
+              }
+              if (typeof val === "string" && cleanTag === cleanTag.toUpperCase() && /[A-Z]/.test(cleanTag)) {
+                return val.toUpperCase();
+              }
+              return val;
+            }
+          }
+
+          // 3. Conditional expression evaluator
+          const isCondition = /[=!<>]|\b(and|or)\b|&&|\|\|/i.test(cleanTag);
+          if (!isCondition) {
+            return "*** MISSING DATA ***";
+          }
+
+          try {
+            let expr = cleanTag;
+            expr = expr.replace(/(["'])(.*?)\1/g, (m, q, text) => {
+              const lower = text.trim().toLowerCase();
+              return optionAliases[lower] ? `"${optionAliases[lower]}"` : m;
+            });
+
+            Object.keys(scope).sort((a, b) => b.length - a.length).forEach(varName => {
+              const escaped = varName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              expr = expr.replace(new RegExp('\\b' + escaped + '\\b', 'gi'), 'scope["' + varName + '"]');
+            });
+
+            return new Function("scope", `return Boolean(${expr});`)(scope);
+          } catch (e) {
+            return false;
+          }
+        }
+      };
+    };
+  },
+
+  async generate({ templatePath, buffer, data, outputFilename, selectElementForAliases, download = false, previewContainerId = 'docx-preview-container' }) {
+    const container = document.getElementById(previewContainerId);
 
     try {
-      const buffer = await this.loadTemplate(templatePath);
-      const zip = new PizZip(buffer);
+      // 1. Resolve buffer from either passed buffer or file path
+      let docBuffer = buffer;
+      if (!docBuffer && templatePath) {
+        docBuffer = await this.loadTemplate(templatePath);
+      }
+      if (!docBuffer) {
+        throw new Error("No template buffer or templatePath provided to DocxEngine.generate.");
+      }
 
+      const zip = new PizZip(docBuffer);
+
+      // 2. Pre-process word XML files to translate [IF]/[ELSE]/[END IF] into docxtemplater tags
       Object.keys(zip.files).forEach(filename => {
         if (filename.startsWith("word/") && filename.endsWith(".xml")) {
           zip.file(filename, this.parseIfTags(zip.files[filename].asText()));
         }
       });
 
+      // 3. Gather dropdown aliases if enabled
       const optionAliases = {};
       if (selectElementForAliases) {
         document.querySelectorAll('select option').forEach(opt => {
@@ -291,66 +359,12 @@ const DocxEngine = {
         });
       }
 
-      const customParser = (tag) => {
-        const cleanTag = tag.replace(/^[#\/\^]/, '').trim();
-        return {
-          get(scope) {
-            if (!cleanTag) return "";
-
-            // 1. EXACT CASE MATCH FIRST
-            if (scope[cleanTag] !== undefined && scope[cleanTag] !== null && scope[cleanTag] !== "") {
-              const val = scope[cleanTag];
-              if (typeof val === "string" && cleanTag === cleanTag.toUpperCase() && /[A-Z]/.test(cleanTag)) {
-                return val.toUpperCase();
-              }
-              return val;
-            }
-
-            // 2. Direct Key Match (case-insensitive fallback)
-            const target = cleanTag.toLowerCase().replace(/[-_\s]/g, '');
-            for (const k of Object.keys(scope)) {
-              if (k.toLowerCase().replace(/[-_\s]/g, '') === target) {
-                const val = scope[k];
-                if (val === "" || val === undefined || val === null) {
-                  return "*** MISSING DATA ***";
-                }
-                if (typeof val === "string" && cleanTag === cleanTag.toUpperCase() && /[A-Z]/.test(cleanTag)) {
-                  return val.toUpperCase();
-                }
-                return val;
-              }
-            }
-
-            const isCondition = /[=!<>]|\b(and|or)\b|&&|\|\|/i.test(cleanTag);
-            if (!isCondition) {
-              return "*** MISSING DATA ***";
-            }
-
-            try {
-              let expr = cleanTag;
-              expr = expr.replace(/(["'])(.*?)\1/g, (m, q, text) => {
-                const lower = text.trim().toLowerCase();
-                return optionAliases[lower] ? `"${optionAliases[lower]}"` : m;
-              });
-
-              Object.keys(scope).sort((a, b) => b.length - a.length).forEach(varName => {
-                const escaped = varName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                expr = expr.replace(new RegExp('\\b' + escaped + '\\b', 'gi'), 'scope["' + varName + '"]');
-              });
-
-              return new Function("scope", `return Boolean(${expr});`)(scope);
-            } catch (e) {
-              return false;
-            }
-          }
-        };
-      };
-
+      // 4. Initialize and render with docxtemplater
       const doc = new window.docxtemplater(zip, {
         delimiters: { start: '[', end: ']' },
         paragraphLoop: true,
         linebreaks: true,
-        parser: customParser
+        parser: this.createCustomParser(optionAliases)
       });
 
       doc.render(data);
@@ -360,6 +374,7 @@ const DocxEngine = {
         mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
       });
 
+      // 5. Handle download or preview
       if (download === true) {
         if (typeof saveAs === "function") {
           saveAs(out, outputFilename || "Document_Output.docx");
@@ -425,14 +440,12 @@ window.showToast = function(message, type = 'success', duration = 3000) {
 // ============================================================================
 window.FormStorage = {
   save(prefix = 'Habeas_Data') {
-  // 1. Extract Name Parts (Supports both index.html and Studio Sandbox)
     let first = document.querySelector('#petitioner_first_name')?.value.trim() || '';
     let middle = document.querySelector('#petitioner_middle_name')?.value.trim() || '';
     let last = document.querySelector('#petitioner_last_name')?.value.trim() || '';
     let rawSuffix = document.querySelector('#petitioner_suffix')?.value.trim() || '';
     let cleanSuffix = rawSuffix.replace(/^[,\s]+/, '').trim();
 
-    // Fallback if full name is in a single field
     if (!first && !last) {
       const fullInput = document.querySelector('#Petitioner\\ Name') || 
                         document.querySelector('[name="Petitioner Name"]');
@@ -440,14 +453,15 @@ window.FormStorage = {
     }
 
     const baseName = [first, middle, last].filter(Boolean).join('_');
-    const cleanName = [baseName, cleanSuffix]
-      .filter(Boolean)
-      .join('_')
-      .replace(/[^a-zA-Z0-9_-]/g, '_');
+      const cleanName = [baseName, cleanSuffix]
+        .filter(Boolean)
+        .join('_')
+        .replace(/[^a-zA-Z0-9_-]/g, '_');
 
-    const filename = `${prefix}_${cleanName || 'Draft'}.json`;
+      // Strips any .json passed in the prefix (e.g., 'Studio_Sandbox_Data.json' -> 'Studio_Sandbox_Data')
+      const cleanPrefix = prefix.replace(/\.json$/i, '');
+      const filename = `${cleanPrefix}_${cleanName || 'Draft'}.json`;
     
-    // 2. Gather All Form Data
     const data = {};
     document.querySelectorAll('input, select, textarea').forEach(el => {
       const key = el.getAttribute('data-dynamic-tag') || el.name || el.id;
@@ -462,7 +476,6 @@ window.FormStorage = {
       }
     });
 
-    // 3. Trigger Download
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -497,14 +510,12 @@ window.FormStorage = {
       try {
         const data = JSON.parse(e.target.result);
         Object.keys(data).forEach(key => {
-          // 1. Radio Buttons (Pronouns)
           const radio = document.querySelector(`input[type="radio"][name="${key}"][value="${data[key]}"]`);
           if (radio) {
             radio.checked = true;
             return;
           }
 
-          // 2. Text, Select, Checkboxes & Dynamic Fields
           const el = document.querySelector(`[data-dynamic-tag="${key}"]`) || 
                      document.getElementById(key) || 
                      document.querySelector(`[name="${key}"]`);

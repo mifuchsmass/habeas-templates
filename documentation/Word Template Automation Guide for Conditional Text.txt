@@ -4,7 +4,7 @@
 
 This guide explains how to format Microsoft Word (.docx) templates so our
 habeas petition generator can automatically insert petitioner details, 
-court headers, pronoun variations, and conditional legal paragraphs.
+court headers, pronoun variations, custom case facts, and conditional paragraphs.
 
 
 1. HOW PLACEHOLDERS WORK (FILLING IN BLANKS)
@@ -12,30 +12,42 @@ court headers, pronoun variations, and conditional legal paragraphs.
 Whenever you want the generator to fill in information from the form, wrap the
 field name in square brackets: [Field Name]
 
-Available Name Fields:
+A. Standard Primary Fields:
 • [Petitioner Name]           -> Combines First, Middle, Last, and Suffix
                                  (e.g., "Jane M. Doe, Jr.")
 • [Petitioner First Name]     -> "Jane"
 • [Petitioner Middle Name]    -> "M."
 • [Petitioner Last Name]      -> "Doe"
 • [Petitioner Suffix]         -> "Jr."
-
-Other Common Fields:
-• [Defendant Name] or [Respondent Name]
-• [Case Number]
+• [Defendant Name] / [Respondent Name]
+• [Case Number] / [Docket Number]
 • [Jurisdiction]
+• [Detention Facility] / [Facility]
+• [Type of Habeas Petition]   -> Short code (e.g., "GO Class" or "Non-GO")
+• [Type of Habeas Petition Full] -> Full text from dropdown
 
-Key Features for Legal Drafting:
+B. Custom Field Auto-Discovery (Tier 2 Fields):
+You are NOT limited to the primary fields above! If your pleading needs specific 
+factual details, simply type any bracketed tag in your Word template, such as:
+• [Alien Registration Number]
+• [Date of Entry]
+• [Arresting Agency]
+• [Prior Removal Order Date]
+
+When you or a volunteer load the template into the generator, the engine 
+AUTOMATICALLY DISCOVERS these tags and creates form input fields for them.
+
+C. Key Formatting Features:
 • Smart Caps:
   - If you type the placeholder in ALL CAPS: [PETITIONER NAME]
-    -> The generated document outputs: JANE M. DOE
+    -> Outputs in uppercase: JANE M. DOE
   - If you type the placeholder normally: [Petitioner Name]
-    -> The generated document outputs: Jane M. Doe
-• Missing Data Warning: If someone forgets to enter a field on the web form, the 
-  document will print "*** MISSING DATA ***" in that spot so incomplete pleadings 
-  are never accidentally filed with the court.
+    -> Outputs as entered: Jane M. Doe
+• Missing Data Safeguard: If a user leaves a form field blank, the document 
+  prints "*** MISSING DATA ***" in that spot so incomplete pleadings are never 
+  accidentally filed.
 • Curly Quotes: Word automatically turns straight quotes into curly "smart quotes." 
-  The engine handles this automatically without breaking.
+  The engine handles both straight and curly quotes automatically.
 
 
 2. AUTOMATIC PRONOUN & GENDER TOGGLING
@@ -46,180 +58,123 @@ The intake form includes a 1-click pronoun selector:
   • They / Them        (Gender-Neutral / Non-Binary)
   • Petitioner         (Noun Only / Formal Pleading)
 
-When a selection is made, the generator automatically derives and populates all 
-grammatical pronoun forms, noun cases, and verb agreements.
+A. Output Reference Matrix
 
-A. Recommended Tag Formats
-You can use either intuitive slash tags or direct pronoun tags:
+| Tag Typed in Word       | He / Him (Default) | She / Her | They / Them | Petitioner (Noun) |
+| :---                    | :---               | :---      | :---        | :---              |
+| [he/she] or [he]        | he                 | she       | they        | Petitioner        |
+| [He/She] or [He]        | He                 | She       | They        | Petitioner        |
+| [HE/SHE] or [HE]        | HE                 | SHE       | THEY        | PETITIONER        |
+| [him/her] or [him]      | him                | her       | them        | Petitioner        |
+| [Him/Her] or [Him]      | Him                | Her       | Them        | Petitioner        |
+| [HIM/HER] or [HIM]      | HIM                | HER       | THEM        | PETITIONER        |
+| [his/her] or [his]      | his                | her       | their       | Petitioner's      |
+| [His/Her] or [His]      | His                | Her       | Their       | Petitioner's      |
+| [HIS/HER] or [HIS]      | HIS                | HER       | THEIR       | PETITIONER'S      |
+| [hers] or [his/hers]    | his                | hers      | theirs      | Petitioner's      |
+| [himself/herself]       | himself            | herself   | themselves  | Petitioner        |
+| [Petitioner]            | Petitioner         | Petitioner| Petitioner  | Petitioner        |
+| [Petitioner's]          | Petitioner's       | Petitioner's| Petitioner's| Petitioner's    |
 
-• Subject (lowercase):       [he], [he/she], or [pronoun subject]
-• Subject (Capitalized):     [He], [He/She], or [Pronoun Subject]
-• Subject (ALL CAPS):        [HE] or [HE/SHE]
-• Object (lowercase):        [him], [him/her], or [pronoun object]
-• Object (Capitalized):      [Him], [Him/Her], or [Pronoun Object]
-• Object (ALL CAPS):         [HIM] or [HIM/HER]
-• Possessive (lowercase):    [his], [his/her], or [pronoun possessive]
-• Possessive (Capitalized):  [His], [His/Her], or [Pronoun Possessive]
-• Possessive (ALL CAPS):     [HIS] or [HIS/HER]
-• Standalone Possessive:     [hers], [his/hers]
-• Reflexive:                 [himself], [himself/herself], or [pronoun reflexive]
+B. Verb & Grammatical Agreement Tags
+When "They / Them" is selected, standard English grammar uses plural verb forms 
+("they are", "they were", "they seek"). The engine provides built-in agreement tags:
 
-B. Output Reference Matrix
+| Agreement Tag Typed     | He / Him           | She / Her | They / Them | Petitioner        |
+| :---                    | :---               | :---      | :---        | :---              |
+| [is/are]                | is                 | is        | **are**     | is                |
+| [was/were]              | was                | was       | **were**    | was               |
+| [has/have]              | has                | has       | **have**    | has               |
+| [brings/bring]          | brings             | brings    | **bring**   | brings            |
+| [seeks/seek]            | seeks              | seeks     | **seek**    | seeks             |
+| [contends/contend]      | contends           | contends  | **contend** | contends          |
+| [s] (3rd-person suffix) | s                  | s         | *(empty)*   | s                 |
+| [an individual/individuals] | an individual  | an individual | an individual | an individual |
 
-| Tag Typed in Word | He / Him (Default) | She / Her | They / Them | Petitioner (Noun) |
-| :--- | :--- | :--- | :--- | :--- |
-| [he/she] or [he]   | he                 | she       | they        | Petitioner        |
-| [He/She] or [He]   | He                 | She       | They        | Petitioner        |
-| [HE/SHE] or [HE]   | HE                 | SHE       | THEY        | PETITIONER        |
-| [his/her] or [his] | his                | her       | their       | Petitioner's      |
-| [His/Her] or [His] | His                | Her       | Their       | Petitioner's      |
-| [HIS/HER] or [HIS] | HIS                | HER       | THEIR       | PETITIONER'S      |
-| [him/her] or [him] | him                | her       | them        | Petitioner        |
-| [himself/herself]  | himself            | herself   | themselves  | Petitioner        |
+C. The 2 Golden Rules for Drafting with Verbs:
+• RULE 1: When the subject is a named party or title ("Petitioner [Petitioner Name]"):
+  Named parties are ALWAYS singular nouns in legal pleadings. Hardcode singular verbs:
+    ❌ INCORRECT: Petitioner [Petitioner Name] [is/are] detained...
+    ✅ CORRECT:   Petitioner [Petitioner Name] is detained in [Detention Facility].
 
+• RULE 2: When the subject is the Pronoun Placeholder (`[He/She]` or `[He]`):
+  Use the verb agreement tags directly after pronoun placeholders:
+    ✅ CORRECT:   [He/She] [is/are] currently detained in administrative custody.
+    ✅ CORRECT:   [He/She] [seeks/seek] emergency injunctive relief.
+    ✅ CORRECT:   [He/She] remain[s] in custody without statutory authority.
 
-C. HOW THE BACKEND ENGINE HANDLES VERBS (SINGULAR VS. PLURAL)
---------------------------------------------------------------------------------
-In English, when a person uses "they/them" pronouns, standard grammar dictates 
-that associated auxiliary verbs take their plural forms ("they are", "they were", 
-"they have"). 
-
-To handle this seamlessly, the backend engine evaluates verb agreement tags:
-
-| Verb Tag Typed | He / Him | She / Her | They / Them (Backend Plural) | Petitioner |
-| :--- | :--- | :--- | :--- | :--- |
-| [is/are]       | is       | is        | **are**                      | is         |
-| [was/were]     | was      | was       | **were**                     | was        |
-| [has/have]     | has      | has       | **have**                     | has        |
-
-
-D. THE 2 GOLDEN RULES FOR DRAFTING SENTENCES WITH VERBS
---------------------------------------------------------------------------------
-Because the backend engine evaluates `[is/are]` as `"are"` for they/them, you must 
-be careful about which subject precedes the verb in your Word document.
-
-RULE 1: When the subject is the title/name ("Petitioner Jane Doe" or "Petitioner")
-In English, a named party is ALWAYS a singular noun. Therefore, you do NOT need 
-agreement tags after the title/name. Hardcode standard singular words:
-
-  ❌ INCORRECT:  Petitioner [Petitioner Name] [is/are] an individual...
-                 (Produces: "Petitioner Jane Doe are an individual" for They/Them)
-
-  ✅ CORRECT:    Petitioner [Petitioner Name] is an individual residing in [Jurisdiction].
-                 Petitioner brings this action on [his/her] own behalf.
-
-RULE 2: When the subject is the Pronoun Placeholder (`[He/She]` or `[He]`)
-Use the agreement tag whenever the sentence starts with the pronoun tag:
-
-  ✅ CORRECT:    [He/She] [is/are] currently detained in administrative custody.
-  ✅ CORRECT:    [He/She] [was/were] transferred without notice.
-  ✅ CORRECT:    [He/She] [has/have] remained confined for over six months.
-
-  How Rule 2 renders across all selections:
-  • He / Him:    "He is currently detained... He was transferred... He has remained..."
-  • She / Her:   "She is currently detained... She was transferred... She has remained..."
-  • They / Them: "They are currently detained... They were transferred... They have remained..."
-  • Petitioner:  "Petitioner is currently detained... Petitioner was transferred..."
-
-
-E. Conditional Pronoun Checks
-You can also write conditional blocks based on the selected pronoun option:
-  [IF Pronouns = "male"]
-  Petitioner uses he/him pronouns.
-  [ELSE IF Pronouns = "female"]
-  Petitioner uses she/her pronouns.
-  [ELSE IF Pronouns = "nonbinary"]
+D. Conditional Pronoun Blocks:
+You can also write condition blocks based on the selected pronoun option:
+  [IF Pronouns = "nonbinary"]
   Petitioner uses gender-neutral they/them pronouns.
-  [ELSE]
+  [ELSE IF Pronouns = "petitioner"]
   Petitioner is referred to exclusively by title as "Petitioner."
   [END IF]
 
 
 3. CONDITIONAL RULES (CHOOSING WHICH LANGUAGE TO INCLUDE)
 --------------------------------------------------------------------------------
-You can tell Word to show or hide language based on the case type, state, or 
-court selected.
+You can show or hide paragraphs based on jurisdiction, case type, facility, or facts.
 
-A. Showing Language Only When Applicable ([IF] ... [END IF])
-Use this when language should only appear under one specific condition.
-
-Example:
+A. Single Condition ([IF] ... [END IF])
   [IF Jurisdiction = "Massachusetts"]
   See Mass. Gen. Laws ch. 260, § 2.
   [END IF]
 
-B. Choosing Between Two Options ([IF] ... [ELSE] ... [END IF])
-Use this when you want Option A for one scenario, and Option B for everything else.
-
-Example:
+B. Two Options ([IF] ... [ELSE] ... [END IF])
   [IF Type of Habeas Petition = "GO Class"]
   Petitioner brings this action on behalf of all similarly situated individuals.
   [ELSE]
   Petitioner brings this action individually.
   [END IF]
 
-C. Choosing Among Multiple Options ([IF] ... [ELSE IF] ... [ELSE] ... [END IF])
-Use this when you have three or more distinct choices.
-
-Example (Court Header):
+C. Multiple Branches ([IF] ... [ELSE IF] ... [ELSE] ... [END IF])
   [IF Jurisdiction = "Massachusetts"]
-  IN THE UNITED STATES DISTRICT COURT FOR THE DISTRICT OF MASSACHUSETTS
+  UNITED STATES DISTRICT COURT FOR THE DISTRICT OF MASSACHUSETTS
   [ELSE IF Jurisdiction = "Rhode Island"]
-  IN THE UNITED STATES DISTRICT COURT FOR THE DISTRICT OF RHODE ISLAND
+  UNITED STATES DISTRICT COURT FOR THE DISTRICT OF RHODE ISLAND
   [ELSE]
-  IN THE UNITED STATES DISTRICT COURT FOR THE DISTRICT OF [JURISDICTION]
+  UNITED STATES DISTRICT COURT FOR THE DISTRICT OF [JURISDICTION]
   [END IF]
 
 
-4. COMBINING CONDITIONS & COMPARISONS
+4. COMPARISONS & LOGICAL OPERATORS
 --------------------------------------------------------------------------------
-You can write natural conditions using everyday legal logic:
-
+You can combine multiple criteria:
 • Equals:                   [IF Jurisdiction = "Massachusetts"]
 • Does NOT equal:           [IF Jurisdiction != "Massachusetts"]
 • Both must be true (AND):  [IF Jurisdiction = "Massachusetts" and Petition Type = "GO Class"]
 • Either can be true (OR):  [IF Jurisdiction = "Massachusetts" or Jurisdiction = "Rhode Island"]
-• Numeric Comparisons:      [IF Days In Detention >= 180]
+• Numeric Comparisons:      [IF Days In Custody >= 180]
+
+Note: Dropdown values can be matched either by short value ("Plymouth") or by full 
+dropdown label ("Plymouth (Plymouth County Correctional Facility)").
 
 
-5. HOW TO AVOID EXTRA BLANK LINES AND KEEP AUTO-NUMBERING INTACT
+5. AVOIDING BLANK LINES & KEEPING AUTO-NUMBERING INTACT
 --------------------------------------------------------------------------------
-To make sure Word's automatic paragraph numbering (1, 2, 3, 4...) stays in 
-consecutive order without leaving orphan numbers or blank lines, follow these 
-two simple rules:
-
-RULE 1: Changing Words or Citations INSIDE a Paragraph
-If the numbered paragraph will ALWAYS exist, but the text inside it changes, 
-keep the tags on the exact same line:
-
+RULE 1: Changing text INSIDE a numbered paragraph
+Keep all conditional tags on the SAME line as the paragraph text:
   3. This action is brought pursuant to [Jurisdiction] law. [IF Jurisdiction = "Massachusetts"]See Mass. Gen. Laws ch. 260, § 2.[ELSE]See applicable statutory provisions.[END IF]
 
-RULE 2: Making an ENTIRE Numbered Paragraph Optional
-If a paragraph should disappear completely when not needed (and not leave behind 
-an empty "4." or blank space):
-• Place [IF ...] on its own unnumbered line above the paragraph.
-• Put your legal text on the numbered line.
-• Place [END IF] on its own unnumbered line below the paragraph.
-
-Example:
+RULE 2: Making an ENTIRE numbered paragraph optional
+Put [IF] and [END IF] on their OWN unnumbered lines before and after the paragraph:
   [IF Type of Habeas Petition = "GO Class"]
-  4. Petitioner brings this action on behalf of all similarly situated parties.
+  4. Petitioner brings this class action pursuant to Fed. R. Civ. P. 23(b)(2).
   [END IF]
 
-  What happens:
-  - If "GO Class" is selected: Paragraph 4 is rendered normally.
-  - If "Non-GO" is selected: Paragraph 4 is completely removed, and the next 
-    paragraph automatically becomes paragraph 4.
+  When "Non-GO" is selected, Paragraph 4 disappears entirely, and subsequent 
+  paragraphs automatically re-number consecutively with no blank gaps.
 
 
-6. NESTING RULES (RULES INSIDE RULES)
+6. NESTING CONDITIONS (CONDITIONS INSIDE CONDITIONS)
 --------------------------------------------------------------------------------
-You can place one rule inside another rule. Just ensure that every [IF] has a 
-corresponding [END IF] at the end:
+You can nest conditional blocks inside other conditional blocks. Ensure every [IF] 
+has a matching [END IF]:
 
   [IF Jurisdiction = "Massachusetts"]
     [IF Type of Habeas Petition = "GO Class"]
-      Massachusetts Class Action Claims
+      Massachusetts GO Class Claims
     [ELSE]
       Massachusetts Individual Claims
     [END IF]
@@ -228,10 +183,26 @@ corresponding [END IF] at the end:
   [END IF]
 
 
-7. COMPLETE SAMPLE TEMPLATE
+7. VALIDATING YOUR TEMPLATES (THE DRAFTING STUDIO)
 --------------------------------------------------------------------------------
-Copy and paste this entire sample directly into your Word template:
+Before distributing new templates to attorneys, always test them in the 
+Volunteer Drafting Studio (`studio.html`):
 
+1. Open `studio.html` in your browser.
+2. Drag and drop your `.docx` file into the upload zone (or paste a paragraph snippet).
+3. The Logic Inspector will immediately check for:
+   • Unclosed `[IF]` or `[ELSE IF]` tags
+   • Orphaned `[ELSE]` or `[END IF]` tags
+   • Out-of-order tags (`[ELSE IF]` placed after `[ELSE]`)
+   • Unbalanced quotation marks
+4. If errors are found, the studio highlights the exact paragraph snippet and gives 
+   step-by-step instructions on how to fix it in Word using Ctrl+F.
+5. Use the Live Test Sandbox to simulate different form inputs and view a live 
+   rendered preview or compiled `.docx` download.
+
+
+8. COMPLETE SAMPLE TEMPLATE
+--------------------------------------------------------------------------------
 [IF Jurisdiction = "Massachusetts"]IN THE UNITED STATES DISTRICT COURT FOR THE DISTRICT OF MASSACHUSETTS[ELSE IF Jurisdiction = "Rhode Island"]IN THE UNITED STATES DISTRICT COURT FOR THE DISTRICT OF RHODE ISLAND[ELSE]IN THE UNITED STATES DISTRICT COURT FOR THE DISTRICT OF [JURISDICTION][END IF]
 
 
@@ -247,7 +218,7 @@ _________________________________________  )
 PETITION FOR WRIT OF HABEAS CORPUS
 
 
-1. Petitioner, [Petitioner Name], is an individual currently residing in [Jurisdiction]. Petitioner brings this petition on [his/her] own behalf.
+1. Petitioner, [Petitioner Name], is an individual currently detained at [Detention Facility] in [Jurisdiction]. Petitioner brings this petition on [his/her] own behalf.
 
 2. At all times relevant hereto, Petitioner was held in custody by Respondent [Defendant Name]. [He/She] [is/are] currently detained without statutory authority.
 

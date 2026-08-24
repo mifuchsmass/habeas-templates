@@ -14,8 +14,8 @@ const DocxEngine = {
       { value: "Boston", text: "Boston (Boston Field Office)" }
     ],
     "New Hampshire": [
+      { value: "Berlin", text: "Berlin (FCI Berlin)" },
       { value: "Strafford", text: "Strafford (Strafford County House of Corrections)" },
-      { value: "Berlin", text: "Berlin (FCI Berlin)" }
     ],
     "Rhode Island": [
       { value: "Wyatt", text: "Wyatt (Donald W. Wyatt Detention Facility)" }

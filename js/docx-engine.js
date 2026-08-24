@@ -512,6 +512,9 @@ window.FormStorage = {
     reader.onload = (e) => {
       try {
         const data = JSON.parse(e.target.result);
+
+        DocxEngine.updateFacilityDropdown(document.getElementById('detention_facility'), data.jurisdiction);
+
         Object.keys(data).forEach(key => {
           const radio = document.querySelector(`input[type="radio"][name="${key}"][value="${data[key]}"]`);
           if (radio) {

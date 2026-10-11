@@ -25,6 +25,81 @@ const DocxEngine = {
     if (doc.getElementsByTagName('parsererror').length) throw Error(`Invalid Word XML: ${label}`);
     return doc;
   },
+  /** Read-only checks for the two known preview sinks; not a DOCX sanitizer. */
+  validatePreview(zip) {
+    const blocked = message => { throw Error(`Preview blocked: ${message} Download remains available.`); };
+    // The pinned renderer reads attributes by local name, irrespective of prefix.
+    const attr = (el, name) => {
+      const matches = [...el.attributes].filter(a => a.localName === name);
+      if (matches.length > 1) blocked('The document contains ambiguous symbol or link information.');
+      return matches[0]?.value ?? null;
+    };
+    const docs = new Map(), relationships = new Map(), mainParts = new Set(['word/document.xml']), renderParts = new Set(['word/document.xml']);
+    const read = name => {
+      if (!docs.has(name)) {
+        try { docs.set(name, this.xml(zip.file(name).asText(), name)); }
+        catch { blocked('The document contains unreadable XML information.'); }
+      }
+      return docs.get(name);
+    };
+    const resolve = (owner, target) => {
+      try {
+        // Match docx-preview's package-path resolution, including encoded names.
+        return new URL(target, `http://docx/${owner}`).toString().slice('http://docx/'.length);
+      } catch { return null; }
+    };
+    for (const name of Object.keys(zip.files).filter(n => n.endsWith('.rels'))) {
+      const doc = read(name), root = doc.documentElement;
+      if (root.localName !== 'Relationships') blocked('The document contains malformed link relationships.');
+      const owner = name === '_rels/.rels' ? '' : name.replace(/(^|\/)_rels\//, '$1').replace(/\.rels$/, '');
+      const ids = new Set(), records = [];
+      for (const el of root.children) {
+        if (el.localName !== 'Relationship') blocked('The document contains malformed link relationships.');
+        const id = attr(el, 'Id'), type = attr(el, 'Type'), target = attr(el, 'Target'), mode = attr(el, 'TargetMode');
+        if (!id || !type || !target || ids.has(id) || mode && !['Internal', 'External'].includes(mode)) blocked('The document contains incomplete or ambiguous link relationships.');
+        ids.add(id); records.push({ id, type, target, mode });
+        // Include renderer-loaded XML even when its filename has no .xml suffix.
+        if (/\/(officeDocument|header|footer|footnotes|endnotes|comments)$/.test(type)) {
+          const path = owner === '' && zip.file(target) ? target : resolve(owner, target);
+          if (!path || !zip.file(path)) {
+            if (mode === 'External') continue; // No package XML is loaded for this resource.
+            blocked('The document contains an invalid document-part relationship.');
+          }
+          renderParts.add(path);
+          if (/\/officeDocument$/.test(type)) mainParts.add(path);
+          read(path);
+        }
+      }
+      relationships.set(owner, records);
+    }
+    for (const name of Object.keys(zip.files).filter(n => n.endsWith('.xml'))) read(name);
+    const links = new Map(), allLinkIds = new Set();
+    for (const [name, doc] of docs) {
+      if (!renderParts.has(name) && !name.startsWith('word/') && !['document', 'hdr', 'ftr', 'footnotes', 'endnotes', 'comments'].includes(doc.documentElement.localName)) continue;
+      const ids = new Set(); links.set(name, ids);
+      for (const el of doc.getElementsByTagName('*')) {
+        if (el.localName === 'sym' && !/^[0-9a-fA-F]{4}$/.test(attr(el, 'char') ?? '')) blocked('A Word symbol has an invalid character code.');
+        if (el.localName === 'hyperlink') {
+          const id = attr(el, 'id');
+          if (id) { ids.add(id); allLinkIds.add(id); }
+        }
+      }
+    }
+    for (const [owner, records] of relationships) for (const rel of records) {
+      // The renderer can resolve hyperlink IDs from main-document relationships
+      // without checking their Type; do not let a mislabeled link bypass checks.
+      const usedAsLink = links.get(owner)?.has(rel.id) || mainParts.has(owner) && allLinkIds.has(rel.id);
+      if (rel.mode !== 'External' || !(/\/hyperlink$/.test(rel.type) || usedAsLink)) continue;
+      const target = rel.target;
+      if (/[\u0000-\u001f\u007f]/.test(target) || /%(?![0-9a-fA-F]{2})/.test(target)) blocked('A document link has a malformed address.');
+      const trimmed = target.trim();
+      if (trimmed.startsWith('#') && trimmed.length > 1) continue;
+      let url;
+      try { url = new URL(target); } catch { blocked('A document link has an unsupported or malformed address.'); }
+      if (!['http:', 'https:', 'mailto:'].includes(url.protocol) ||
+          (url.protocol === 'mailto:' ? !url.pathname : !url.hostname)) blocked('A document link uses an unsupported address type.');
+    }
+  },
   descendants(el, local) { return [...el.getElementsByTagNameNS(this.ns, local)]; },
   ancestor(el, local) {
     while (el && el.nodeType === 1) { if (el.namespaceURI === this.ns && el.localName === local) return el; el = el.parentNode; }
@@ -289,6 +364,7 @@ window.GenerationUI = {
   },
   async run(download, options) {
     const serial = ++this.serial, isLatest = () => serial === this.serial;
+    if (!download) document.getElementById('docx-preview-container')?.replaceChildren();
     this.status(download ? 'Preparing Word document for download…' : 'Generating current form preview…');
     try {
       // Read form synchronously at start, so later edits belong to later attempts.
@@ -301,10 +377,16 @@ window.GenerationUI = {
         if (isLatest()) this.status('Word document created; preparing preview…', result);
         const staging = document.createElement('div');
         try {
+          DocxEngine.validatePreview(result.zip);
           if (!window.docx?.renderAsync) throw Error('Preview library is not loaded.');
           await window.docx.renderAsync(result.blob, staging);
           if (isLatest()) { document.getElementById('docx-preview-container').replaceChildren(...staging.childNodes); this.status('Preview ready.'); }
-        } catch (e) { if (isLatest()) this.status(`Word document created, but the preview could not be displayed: ${e.message}`); }
+        } catch (e) {
+          if (isLatest()) {
+            document.getElementById('docx-preview-container')?.replaceChildren();
+            this.status(`Word document created, but the preview could not be displayed: ${e.message}`);
+          }
+        }
       }
       return result;
     } catch (e) {

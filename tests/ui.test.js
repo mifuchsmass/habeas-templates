@@ -265,5 +265,35 @@
       assert(panel.textContent.includes('Generation failed')); assert(!panel.querySelector('details'));
     } finally { studio.docx.renderAsync = render; }
   });
+  await test('actual Studio preview preserves valid symbols and normal links',async()=>{
+    const zip=new studio.PizZip(studio.createDocxFromText('Synthetic preview review'));
+    zip.file('word/document.xml',`<w:document xmlns:w="${studio.eval('DocxEngine').ns}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body><w:p><w:bookmarkStart w:id="1" w:name="Review"/><w:r><w:sym w:font="Arial" w:char="0041"/></w:r><w:bookmarkEnd w:id="1"/><w:hyperlink w:anchor="Review"><w:r><w:t>Internal review</w:t></w:r></w:hyperlink>${['http','https','mailto'].map((id)=>`<w:hyperlink r:id="${id}"><w:r><w:t>${id} review</w:t></w:r></w:hyperlink>`).join('')}</w:p></w:body></w:document>`);
+    zip.file('word/_rels/document.xml.rels',`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${[['http','http://example.test/review'],['https','https://example.test/review'],['mailto','mailto:synthetic@example.test']].map(([id,target])=>`<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" TargetMode="External" Target="${target}"/>`).join('')}</Relationships>`);
+    studio.handleFile(new studio.File([zip.generate({type:'arraybuffer'})],'synthetic-valid.docx'));await fileReadFinished();
+    sd.getElementById('renderBtn').click();await until(()=>sd.getElementById('generation-status').textContent.includes('Preview ready'));
+    const preview=sd.getElementById('docx-preview-container');assert(preview.textContent.includes('A'));
+    const hrefs=[...preview.querySelectorAll('a')].map(a=>a.getAttribute('href'));
+    for(const href of ['#Review','http://example.test/review','https://example.test/review','mailto:synthetic@example.test'])assert(hrefs.includes(href));
+  });
+  await test('Attorney Form and Studio buttons block invalid-symbol Preview but Download the unchanged DOCX',async()=>{
+    for(const [win,document] of [[app,doc],[studio,sd]]) {
+      const engine=win.eval('DocxEngine'),path='templates/petition.docx',previous=engine.templateCache[path];
+      const zip=new win.PizZip(await engine.loadTemplate(path));
+      zip.file('word/document.xml',`<w:document xmlns:w="${engine.ns}"><w:body><w:p><w:r><w:sym w:font="Arial" w:char="ZZZZ"/></w:r></w:p></w:body></w:document>`);
+      const buffer=zip.generate({type:'arraybuffer'}),render=win.docx.renderAsync,save=win.saveAs;
+      let renders=0,download;
+      win.docx.renderAsync=async()=>renders++;win.saveAs=(blob)=>{download=blob;};
+      try {
+        if(win===app)engine.templateCache[path]=buffer;
+        else{win.handleFile(new win.File([buffer],'synthetic-invalid-symbol.docx'));await fileReadFinished();}
+        document.getElementById('docx-preview-container').textContent='Previous document';
+        document.getElementById('renderBtn').click();await until(()=>document.getElementById('generation-status').textContent.includes('Preview blocked'));
+        assert(renders===0);assert(document.getElementById('docx-preview-container').textContent==='');
+        assert(!document.getElementById('generation-status').textContent.includes('Generation failed'));
+        document.getElementById('downloadBtn').click();await until(()=>download);
+        assert(new win.PizZip(await download.arrayBuffer()).file('word/document.xml').asText().includes('w:char="ZZZZ"'));
+      }finally{engine.templateCache[path]=previous;win.docx.renderAsync=render;win.saveAs=save;}
+    }
+  });
   document.getElementById('test-output').textContent=JSON.stringify({results});
 })().catch(e=>document.getElementById('test-output').textContent=JSON.stringify({fatal:e.stack}));

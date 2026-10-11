@@ -260,7 +260,7 @@
     document.getElementById('docx-preview-container').textContent = 'Previous completed preview';
     const old = GenerationUI.run(false, { collect: () => ({ formData: {}, fullName: '' }) }); finishOld(oldResult); await Promise.resolve(); await Promise.resolve();
     const newer = GenerationUI.run(true, { collect: () => ({ formData: {}, fullName: '' }) }); assert(GenerationUI.panel().textContent.includes('Preparing Word document for download…')); finishNew(newResult); await newer;
-    releasePreview(); await old; assert(!GenerationUI.panel().textContent.includes('Old Missing')); equal(document.getElementById('docx-preview-container').textContent, 'Previous completed preview');
+    releasePreview(); await old; assert(!GenerationUI.panel().textContent.includes('Old Missing')); equal(document.getElementById('docx-preview-container').textContent, '');
     DocxEngine.generate = oldGenerate; DocxEngine.download = oldDownload;
   });
   await test('late generation completion cannot replace newer status', async () => {
@@ -277,6 +277,73 @@
     assert(GenerationUI.panel().textContent.includes('Word document created, but the preview could not be displayed:')); assert(GenerationUI.panel().textContent.includes('1 blank field'));
     await GenerationUI.run(true, { buffer: fixture(p('{IF invalid}')), collect: () => ({ formData: {}, fullName: '' }) });
     assert(GenerationUI.panel().textContent.includes('Generation failed')); assert(!GenerationUI.panel().textContent.includes('1 blank field'));
+  });
+  const previewZip = body => new PizZip(fixture(body));
+  const symbol = code => `<w:p><w:r><w:sym w:font="Wingdings"${code === null ? '' : ` w:char="${code}"`}/></w:r></w:p>`;
+  const relation = (target, type = 'hyperlink', extra = '') => `<Relationship Id="review" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/${type}" Target="${esc(target).replace(/"/g, '&quot;')}" TargetMode="External" ${extra}/>`;
+  const rels = content => `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${content}</Relationships>`;
+  await test('preview accepts canonical symbols without modifying package', () => {
+    for (const code of ['0041', 'f0b7', 'F03A']) {
+      const zip = previewZip(symbol(code)), before = zip.generate({type:'base64'});
+      DocxEngine.validatePreview(zip); equal(zip.generate({type:'base64'}), before);
+    }
+    for (const code of [null, '', '041', 'GGGG', '0041;', ' 0041', '0041 ']) throws(() => DocxEngine.validatePreview(previewZip(symbol(code))));
+    throws(() => DocxEngine.validatePreview(previewZip('<w:p><w:r><w:sym xmlns:x="urn:review" w:char="0041" x:char="ZZZZ"/></w:r></w:p>')));
+  });
+  await test('preview link schemes, XML decoding, anchors and unrelated relationships', () => {
+    for (const target of ['http://example.test/a', 'https://example.test/a?x=1&y=2', ' HTTPS://example.test/a%20b ', 'mailto:synthetic@example.test?subject=Review%20only', '#Bookmark']) {
+      const zip = previewZip(p('Synthetic')); zip.file('word/_rels/document.xml.rels', rels(relation(target))); DocxEngine.validatePreview(zip);
+    }
+    DocxEngine.validatePreview(previewZip('<w:p><w:bookmarkStart w:id="1" w:name="Review"/><w:hyperlink w:anchor="Review"><w:r><w:t>Bookmark</w:t></w:r></w:hyperlink><w:bookmarkEnd w:id="1"/></w:p>'));
+    for (const target of ['javascript:', 'data:', 'file:///synthetic', '//example.test/a', 'relative.docx', 'mailto:', 'http://', 'https://example.test/%ZZ', 'java&#x9;script:']) {
+      const zip = previewZip(p('Synthetic'));zip.file('word/_rels/document.xml.rels',rels(relation(target)));throws(()=>DocxEngine.validatePreview(zip));
+    }
+    const zip=previewZip(p('Synthetic'));zip.file('word/_rels/document.xml.rels',rels(relation('file:///synthetic','image')));DocxEngine.validatePreview(zip);
+    zip.file('word/document.xml',`<w:document xmlns:w="${ns}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body><w:p><w:hyperlink r:id="review"><w:r><w:t>Review</w:t></w:r></w:hyperlink></w:p></w:body></w:document>`);
+    throws(()=>DocxEngine.validatePreview(zip));
+  });
+  await test('preview checks notes, headers, footers, unusual XML parts and malformed relationships', () => {
+    for (const root of ['hdr','ftr','footnotes','endnotes','comments']) {
+      const zip=previewZip(p('Synthetic'));zip.file(`word/${root}.xml`,`<w:${root} xmlns:w="${ns}">${symbol('ZZZZ')}</w:${root}>`);throws(()=>DocxEngine.validatePreview(zip));
+    }
+    const spoof=previewZip(p('Synthetic'));spoof.file('word/document.xml',`<other xmlns:w="${ns}"><w:body>${symbol('ZZZZ')}</w:body></other>`);throws(()=>DocxEngine.validatePreview(spoof));
+    const zip=previewZip(p('Synthetic'));
+    zip.file('word/header-part',`<w:hdr xmlns:w="${ns}">${symbol('ZZZZ')}</w:hdr>`);
+    zip.file('word/_rels/document.xml.rels',rels('<Relationship Id="h" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header-part"/>'));
+    throws(()=>DocxEngine.validatePreview(zip));
+    zip.file('word/encoded%20header',`<w:hdr xmlns:w="${ns}">${symbol('ZZZZ')}</w:hdr>`);
+    zip.file('word/encoded header',`<w:hdr xmlns:w="${ns}">${symbol('0041')}</w:hdr>`);
+    zip.file('word/_rels/document.xml.rels',rels('<Relationship Id="h" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="encoded%20header"/>'));
+    throws(()=>DocxEngine.validatePreview(zip));
+    zip.file('word/_rels/document.xml.rels',rels('<Relationship Id="h" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="encoded%20header" TargetMode="External"/>'));
+    throws(()=>DocxEngine.validatePreview(zip));
+    for(const raw of ['<Relationships>',rels(relation('https://example.test')+relation('https://example.test')),rels('<Relationship Id="x"/>'),rels(relation('https://example.test','hyperlink','xmlns:x="urn:review" x:Target="file:///synthetic"'))]) {
+      const candidate=previewZip(p('Synthetic'));candidate.file('word/_rels/document.xml.rels',raw);throws(()=>DocxEngine.validatePreview(candidate));
+    }
+    const candidate=previewZip(p('Synthetic'));candidate.file('word/_rels/document.xml.rels',rels(relation('java&#x9;script:').replace('&amp;#x9;','&#x9;')));throws(()=>DocxEngine.validatePreview(candidate));
+  });
+  await test('blocked preview preserves warnings, clears stale content and permits independent Download', async () => {
+    const result=DocxEngine.compile(fixture(symbol('ZZZZ')+p('<Missing>')),{});
+    const oldRender=window.docx,oldDownload=DocxEngine.download;let rendered=0,downloaded=0;
+    window.docx={renderAsync:async()=>rendered++};DocxEngine.download=()=>downloaded++;
+    try {
+      document.getElementById('docx-preview-container').textContent='Stale';
+      const options={buffer:result.zip.generate({type:'arraybuffer'}),collect:()=>({formData:{},fullName:''})};
+      assert(await GenerationUI.run(false,options));assert(rendered===0);equal(document.getElementById('docx-preview-container').textContent,'');
+      assert(GenerationUI.panel().textContent.includes('Preview blocked'));assert(GenerationUI.panel().textContent.includes('1 blank field'));assert(!GenerationUI.panel().textContent.includes('Generation failed'));
+      assert(await GenerationUI.run(true,options));equal(downloaded,1);equal(rendered,0);
+    } finally {window.docx=oldRender;DocxEngine.download=oldDownload;}
+  });
+  await test('late preview validation failure cannot clear a newer preview or status',async()=>{
+    const generate=DocxEngine.generate,render=window.docx;let oldFinish,newFinish;
+    DocxEngine.generate=()=>new Promise(resolve=>{if(!oldFinish)oldFinish=resolve;else newFinish=resolve;});
+    window.docx={renderAsync:async(_,target)=>{target.textContent='Newest preview';}};
+    try {
+      const opts={collect:()=>({formData:{},fullName:''})},old=GenerationUI.run(false,opts),newer=GenerationUI.run(false,opts);
+      newFinish(DocxEngine.compile(fixture(p('Synthetic')),{}));await newer;const status=GenerationUI.panel().textContent;
+      oldFinish(DocxEngine.compile(fixture(symbol('ZZZZ')),{}));await old;
+      equal(document.getElementById('docx-preview-container').textContent,'Newest preview');equal(GenerationUI.panel().textContent,status);
+    }finally{DocxEngine.generate=generate;window.docx=render;}
   });
   // Studio logic uses the same Word inspector; UI upload/paste event behavior checked separately.
   const studio = document.createElement('div'); studio.innerHTML = '<div id="results"></div><div id="sandbox"><div id="sandbox-dynamic-section"><div id="sandbox-dynamic-container"></div></div></div>'; document.body.append(studio);

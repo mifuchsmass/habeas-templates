@@ -9,7 +9,7 @@ const DocxEngine = {
   },
   updateFacilityDropdown(el, state) {
     if (!el) return;
-    el.replaceChildren(...(this.STATE_FACILITIES[state] || [{ value: 'N/A', text: 'N/A (Standard / Not Applicable)' }]).map(o => new Option(o.text, o.value)));
+    el.replaceChildren(new Option('Select detention facility…', ''), ...(state ? this.STATE_FACILITIES[state] || [{ value: 'N/A', text: 'N/A (Standard / Not Applicable)' }] : []).map(o => new Option(o.text, o.value)));
   },
   async loadTemplate(path) {
     if (!this.templateCache[path]) {
@@ -399,6 +399,7 @@ window.GenerationUI = {
 window.FormStorage = {
   requireReady() {
     if (typeof requirePleadingReady === 'function') requirePleadingReady();
+    if (typeof requireStudioReady === 'function') requireStudioReady();
   },
   controls() {
     const studio = document.getElementById('sandbox');

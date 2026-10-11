@@ -99,6 +99,17 @@
   const frame = document.createElement('iframe');frame.src='/index.html';document.body.append(frame);
   await until(()=>frame.contentWindow?.eval('typeof DocxEngine') !== 'undefined' && frame.contentDocument.querySelector('#dynamic-fields-container input'));
   const app=frame.contentWindow, doc=frame.contentDocument; app.DocxEngine=app.eval('DocxEngine');
+  await test('Attorney Form starts blank with useful prompts and no derived dropdown text',()=>{
+    for(const input of doc.querySelectorAll('input[type="text"], select'))assert(input.value==='');
+    assert(doc.getElementById('petitioner_first_name').placeholder==='First Name');
+    assert(doc.getElementById('defendant').placeholder && doc.getElementById('case_number').placeholder);
+    assert(doc.querySelector('label[for="jurisdiction"]'));
+    assert(app.getFormData().formData['Type of Habeas Petition Full']==='');
+    const jurisdiction=doc.getElementById('jurisdiction'),facility=doc.getElementById('detention_facility');
+    jurisdiction.value='Massachusetts';jurisdiction.dispatchEvent(new app.Event('change'));
+    assert(facility.value==='');assert([...facility.options].some(o=>o.value==='Plymouth'));
+    jurisdiction.value='';jurisdiction.dispatchEvent(new app.Event('change'));assert(facility.value==='');
+  });
   await test('actual app controls and warning panel position',()=>{
     assert(!doc.querySelector('[name="petitioner_pronouns"]'));const buttons=doc.querySelectorAll('.action-block button');assert(buttons.length===4);
     assert(doc.getElementById('generation-status').previousElementSibling.classList.contains('action-block'));
@@ -178,6 +189,16 @@
       for (const key of ['Enter', ' ']) zone.dispatchEvent(new studio.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
       assert(clicks === 3);
     } finally { input.click = original; }
+  });
+  await test('Studio has independent synthetic primary defaults',()=>{
+    assert(sd.getElementById('petitioner_first_name').value==='Jane');
+    assert(sd.getElementById('petitioner_middle_name').value==='');
+    assert(sd.getElementById('petitioner_last_name').value==='Doe');
+    assert(sd.getElementById('petitioner_suffix').value==='');
+    assert(sd.getElementById('petition_type').value==='Non-GO');
+    assert(sd.getElementById('detention_facility').value==='Plymouth');
+    assert(sd.getElementById('defendant').value==='Department of Homeland Security');
+    assert(sd.getElementById('case_number').value==='TEST-CASE-0001');
   });
   await test('Studio cloned form excludes pronouns and keeps existing controls',()=>{
     assert(!sd.querySelector('[name="petitioner_pronouns"]'));assert(sd.getElementById('dropzone'));assert(sd.getElementById('fileInput'));assert(sd.getElementById('inspectSnippetBtn'));assert(sd.querySelectorAll('.action-block button').length===4);
@@ -294,6 +315,73 @@
         assert(new win.PizZip(await download.arrayBuffer()).file('word/document.xml').asText().includes('w:char="ZZZZ"'));
       }finally{engine.templateCache[path]=previous;win.docx.renderAsync=render;win.saveAs=save;}
     }
+  });
+  await test('bundled Studio samples transfer as JSON to fresh Attorney Form and preserve edits',async()=>{
+    const buffer=await(await fetch('/templates/petition.docx')).arrayBuffer();
+    studio.handleFile(new studio.File([buffer],'petition.docx'));await fileReadFinished();
+    await until(()=>!sd.getElementById('renderBtn').disabled);
+    assert(sd.querySelector('[data-dynamic-tag="Country of Citizenship"]').value==='Fictional Country');
+    const entered=sd.querySelector('[data-dynamic-tag="Entry Location"]');entered.value='Manual synthetic entry';entered.dispatchEvent(new studio.Event('input',{bubbles:true}));
+    const blank=sd.querySelector('[data-dynamic-tag="Date of Arrest"]');blank.value='';blank.dispatchEvent(new studio.Event('input',{bubbles:true}));
+    studio.inspectTemplate(buffer,'petition.docx');
+    assert(sd.querySelector('[data-dynamic-tag="Entry Location"]').value==='Manual synthetic entry');
+    assert(sd.querySelector('[data-dynamic-tag="Date of Arrest"]').value==='');
+    const expected=studio.FormStorage.snapshot();let json;
+    const save=studio.saveAs;studio.saveAs=(blob)=>json=blob;
+    try{sd.querySelector('.utility-actions button').click();assert(json);}finally{studio.saveAs=save;}
+    await studio.FormStorage.load(json);studio.inspectTemplate(buffer,'petition.docx');
+    assert(studio.FormStorage.snapshot().values['Date of Arrest']==='');
+    const fresh=document.createElement('iframe');fresh.src='/index.html';document.body.append(fresh);
+    try{
+      await until(()=>fresh.contentDocument?.querySelector('[data-dynamic-tag]') && !fresh.contentDocument.getElementById('renderBtn').disabled);
+      const win=fresh.contentWindow,fd=fresh.contentDocument;
+      assert([...fd.querySelectorAll('input[type="text"],select')].every(input=>input.value===''));
+      await win.FormStorage.load(json);
+      assert(JSON.stringify(win.FormStorage.snapshot().values)===JSON.stringify(expected.values));
+      let download;win.saveAs=(blob)=>download=blob;
+      fd.getElementById('downloadBtn').click();await until(()=>download);
+      assert(fd.getElementById('docx-preview-container').textContent==='');
+      fd.getElementById('renderBtn').click();await until(()=>fd.getElementById('generation-status').textContent.includes('Preview ready'));
+      assert(fd.getElementById('docx-preview-container').textContent.includes('Jane Doe'));
+      const independent=studio.createDocxFromText('<Country of Citizenship> <Unknown Field>');studio.inspectTemplate(independent,'independent.docx');
+      assert([...sd.querySelectorAll('[data-dynamic-tag]')].every(input=>input.value===''));
+    }finally{fresh.remove();}
+  });
+  const studioHtml=await(await fetch('/drafting-studio.html')).text();
+  for(const failure of [false,true])await test(`${failure?'failed':'delayed'} Studio cloning blocks incomplete actions while inspection remains available`,async()=>{
+    const f=document.createElement('iframe');
+    const bootstrap=`<base href="${location.origin}/"><script>
+      const originalFetch=window.fetch.bind(window);
+      window.fetch=(path,...args)=>String(path)==='index.html'?new Promise((resolve,reject)=>{
+        window.releasePrimary=()=>originalFetch(path,...args).then(resolve,reject);
+        window.failPrimary=()=>reject(Error('Synthetic clone failure'));
+      }):originalFetch(path,...args);
+    <\/script>`;
+    f.srcdoc=studioHtml.replace('<head>','<head>'+bootstrap);document.body.append(f);
+    try{
+      await until(()=>f.contentWindow?.releasePrimary && f.contentWindow.inspectTemplate);
+      const win=f.contentWindow,fd=f.contentDocument;
+      win.inspectTemplate(win.createDocxFromText('<Unknown Field>'),'synthetic.docx');
+      assert(fd.getElementById('results').textContent.includes('template syntax checked'));
+      assert([...fd.querySelectorAll('.action-block button')].every(button=>button.disabled));
+      let downloads=0,reads=0;win.saveAs=()=>downloads++;
+      win.FormStorage.save();await win.FormStorage.load({text:async()=>{reads++;return '{}';}});
+      await win.runTestRender(false);await win.runTestRender(true);
+      assert(downloads===0 && reads===0);
+      if(failure){
+        win.failPrimary();await until(()=>fd.getElementById('generation-status').textContent.includes('refresh the page'));
+        assert(!fd.getElementById('petitioner_first_name'));
+        const notice=fd.getElementById('studio-initialization-error');
+        assert(notice && !notice.closest('#sandbox') && win.getComputedStyle(notice).display!=='none');
+        win.inspectTemplate(win.createDocxFromText('<Still Inspectable>'),'other.docx');
+        assert(fd.getElementById('results').textContent.includes('template syntax checked'));
+        assert([...fd.querySelectorAll('.action-block button')].every(button=>button.disabled));
+      }else{
+        win.releasePrimary();await until(()=>[...fd.querySelectorAll('.action-block button')].every(button=>!button.disabled));
+        assert(win.FormStorage.snapshot().values['Petitioner First Name']==='Jane');
+        assert(fd.querySelector('[data-dynamic-tag="Unknown Field"]').value==='');
+      }
+    }finally{f.remove();}
   });
   document.getElementById('test-output').textContent=JSON.stringify({results});
 })().catch(e=>document.getElementById('test-output').textContent=JSON.stringify({fatal:e.stack}));

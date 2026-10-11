@@ -24,6 +24,7 @@
     <div class="field">
       <label for="jurisdiction">Jurisdiction:</label>
       <select id="jurisdiction" data-form-field="Jurisdiction">
+        <option value="">Select jurisdiction…</option>
         <option value="Massachusetts">Massachusetts</option>
         <option value="Connecticut">Connecticut</option>
         <option value="Maine">Maine</option>
@@ -37,6 +38,7 @@
     <div class="field" id="facility_field_wrapper">
       <label for="detention_facility">Detention Facility:</label>
       <select id="detention_facility" data-form-field="Detention Facility">
+        <option value="">Select detention facility…</option>
         <option value="Plymouth">Plymouth (Plymouth County Correctional Facility)</option>
         <option value="Burlington">Burlington (Burlington ICE Office)</option>
         <option value="Boston">Boston (Boston Field Office)</option>
@@ -46,6 +48,7 @@
     <div class="field">
       <label for="petition_type">Type of Habeas Petition:</label>
       <select id="petition_type" data-form-field="Type of Habeas Petition">
+        <option value="">Select petition type…</option>
         <option value="GO Class">GO Class Proceeding (GO Class)</option>
         <option value="Non-GO">Non-GO 1225/1226 Proceeding (Non-GO)</option>
       </select>
@@ -55,21 +58,21 @@
     <div class="field">
       <label>Petitioner Name:</label>
       <div class="name-grid">
-        <input type="text" id="petitioner_first_name" data-form-field="Petitioner First Name" placeholder="First Name" value="Jane">
-        <input type="text" id="petitioner_middle_name" data-form-field="Petitioner Middle Name" placeholder="Middle" value="M.">
-        <input type="text" id="petitioner_last_name" data-form-field="Petitioner Last Name" placeholder="Last Name" value="Doe">
+        <input type="text" id="petitioner_first_name" data-form-field="Petitioner First Name" placeholder="First Name" value="">
+        <input type="text" id="petitioner_middle_name" data-form-field="Petitioner Middle Name" placeholder="Middle" value="">
+        <input type="text" id="petitioner_last_name" data-form-field="Petitioner Last Name" placeholder="Last Name" value="">
         <input type="text" id="petitioner_suffix" data-form-field="Petitioner Suffix" placeholder="Suffix (Jr., III)" value="">
       </div>
     </div>
 
     <div class="field">
       <label for="defendant">Respondent / Defendant Name:</label>
-      <input type="text" id="defendant" data-form-field="Defendant Name" value="Department of Homeland Security">
+      <input type="text" id="defendant" data-form-field="Defendant Name" placeholder="Respondent name" value="">
     </div>
 
     <div class="field">
       <label for="case_number">Case Number:</label>
-      <input type="text" id="case_number" data-form-field="Case Number" value="2026-CV-04321">
+      <input type="text" id="case_number" data-form-field="Case Number" placeholder="Case number" value="">
     </div>
   </div>
 

@@ -7,9 +7,43 @@
 // ============================================================================
 const ACCESS_PASSWORD = "Habeas123!";
 let currentArrayBuffer = null;
+let lastInspectedBuffer = null;
 let primaryFormReady;
 let activeDocx = null;
 let templateReadSerial = 0;
+const studioInitialization = { primary: false, fields: false, error: '', bundled: null };
+const STUDIO_PRIMARY_SAMPLES = {
+  jurisdiction: 'Massachusetts', detention_facility: 'Plymouth', petition_type: 'Non-GO',
+  petitioner_first_name: 'Jane', petitioner_middle_name: '', petitioner_last_name: 'Doe',
+  petitioner_suffix: '', defendant: 'Department of Homeland Security', case_number: 'TEST-CASE-0001'
+};
+const STUDIO_DYNAMIC_SAMPLES = {
+  'Country of Citizenship': 'Fictional Country', 'Continuous Residence Date': 'January 1, 2020',
+  'Date of Entry': 'January 1, 2020', 'Entry Location': 'Fictional Entry Location', 'Date of Arrest': 'January 1, 2026'
+};
+function requireStudioReady() {
+  if (!document.getElementById('sandbox')) return;
+  if (!studioInitialization.primary || !studioInitialization.fields) {
+    throw Error(studioInitialization.error || 'Studio form fields are not ready. Wait for initialization and inspect a template first.');
+  }
+}
+function updateStudioActions() {
+  const ready = studioInitialization.primary && studioInitialization.fields;
+  document.querySelectorAll('#sandbox .action-block button').forEach(button => { button.disabled = !ready; });
+}
+function sameStudioTemplate(a, b) {
+  if (!a || !b || a.byteLength !== b.byteLength) return false;
+  const other = new Uint8Array(b);
+  return new Uint8Array(a).every((byte, i) => byte === other[i]);
+}
+function applyStudioDynamicSamples() {
+  if (!studioInitialization.primary || !studioInitialization.bundled || !currentArrayBuffer) return;
+  if (!sameStudioTemplate(studioInitialization.bundled, currentArrayBuffer)) return;
+  for (const input of document.querySelectorAll('#sandbox [data-dynamic-tag]')) {
+    const sample = STUDIO_DYNAMIC_SAMPLES[input.getAttribute('data-dynamic-tag')];
+    if (sample !== undefined && !input.value && !input.dataset.studioEdited) input.value = sample;
+  }
+}
 function updateUploadIndicator() {
   const name = document.getElementById('upload-template-name');
   const detail = document.getElementById('upload-template-detail');
@@ -77,6 +111,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  updateStudioActions();
+  document.getElementById('sandbox')?.addEventListener('input', event => {
+    if (event.target.matches('input, select, textarea')) event.target.dataset.studioEdited = 'true';
+  });
   primaryFormReady = loadPrimaryFormFromIndex();
 
   if (sessionStorage.getItem('drafting_studio_auth') === 'true') {
@@ -183,6 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function handleFile(file) {
   if (!file) return;
   const serial = ++templateReadSerial;
+  studioInitialization.fields = false; updateStudioActions();
   activeDocx = null; currentArrayBuffer = null; identifyTemplate();
   document.getElementById('results').replaceChildren();
   document.getElementById('sandbox').style.display = 'none';
@@ -231,7 +270,8 @@ async function loadPrimaryFormFromIndex() {
     const htmlText = await res.text();
     const doc = new DOMParser().parseFromString(htmlText, 'text/html');
 
-    const primarySection = doc.querySelector('.primary-fields-section') || doc.body;
+    const primarySection = doc.querySelector('.primary-fields-section');
+    if (!primarySection) throw Error('Primary form is missing.');
     const clone = primarySection.cloneNode(true);
 
     clone.querySelectorAll('button, #docx-preview-container, .preview-section, [type="submit"], h2, #dynamic-fields-section, .header-row').forEach(el => el.remove());
@@ -239,25 +279,29 @@ async function loadPrimaryFormFromIndex() {
     container.innerHTML = "";
     container.appendChild(clone);
 
-    // Bind Sandbox Jurisdiction Change to Facility Dropdown
-    const sandboxJurisdiction = container.querySelector('#jurisdiction');
-    const sandboxFacility = container.querySelector('#detention_facility');
-    if (sandboxJurisdiction && sandboxFacility) {
-      DocxEngine.updateFacilityDropdown(sandboxFacility, sandboxJurisdiction.value);
-      sandboxJurisdiction.addEventListener('change', (e) => {
-        DocxEngine.updateFacilityDropdown(sandboxFacility, e.target.value);
-      });
+    const jurisdiction = container.querySelector('#jurisdiction'), facility = container.querySelector('#detention_facility');
+    if (!jurisdiction || !facility || Object.keys(STUDIO_PRIMARY_SAMPLES).some(id => !container.querySelector(`#${id}`))) throw Error('Primary form is incomplete.');
+    for (const [id, sample] of Object.entries(STUDIO_PRIMARY_SAMPLES)) {
+      if (id !== 'detention_facility') container.querySelector(`#${id}`).value = sample;
     }
+    DocxEngine.updateFacilityDropdown(facility, jurisdiction.value);
+    facility.value = STUDIO_PRIMARY_SAMPLES.detention_facility;
+    jurisdiction.addEventListener('change', () => DocxEngine.updateFacilityDropdown(facility, jurisdiction.value));
+    // A missing bundled template must not prevent testing independent uploads.
+    try { studioInitialization.bundled = await DocxEngine.loadTemplate(TEMPLATE_PATH); } catch { /* No bundled samples. */ }
+    studioInitialization.primary = true;
+    applyStudioDynamicSamples();
+    updateStudioActions();
   } catch (err) {
-    console.warn("Auto-sync fallback: Using default primary fields", err);
-    container.innerHTML = `
-      <div class="sandbox-grid">
-        <div class="field"><label>Jurisdiction</label><select id="jurisdiction" data-form-field="Jurisdiction"><option value="Massachusetts">Massachusetts</option><option value="New Hampshire">New Hampshire</option></select></div>
-        <div class="field"><label>Detention Facility</label><select id="detention_facility" data-form-field="Detention Facility"><option value="Plymouth">Plymouth</option><option value="Burlington">Burlington</option></select></div>
-        <div class="field"><label>Petitioner Name</label><input type="text" id="petitioner_first_name" data-form-field="Petitioner First Name" value="Jane Marie Doe"></div>
-        <div class="field"><label>Case Number</label><input type="text" id="case_number" data-form-field="Case Number" value="2026-CV-04321"></div>
-      </div>
-    `;
+    container.replaceChildren();
+    studioInitialization.error = 'Studio form could not be initialized. Please refresh the page.';
+    studioInitialization.primary = false;
+    updateStudioActions();
+    const notice = document.createElement('p'); notice.className = 'error-card';
+    notice.id = 'studio-initialization-error'; notice.setAttribute('role', 'alert');
+    notice.textContent = studioInitialization.error;
+    document.getElementById('sandbox').before(notice);
+    GenerationUI.status(studioInitialization.error);
   }
 }
 
@@ -266,7 +310,10 @@ async function loadPrimaryFormFromIndex() {
 // ============================================================================
 function inspectTemplate(buffer, filename, source = 'docx') {
   const results = document.getElementById('results'), sandbox = document.getElementById('sandbox');
+  const previous = sameStudioTemplate(lastInspectedBuffer, buffer)
+    ? new Map([...sandbox.querySelectorAll('[data-dynamic-tag]')].map(input => [input.getAttribute('data-dynamic-tag'), input.value])) : new Map();
   results.replaceChildren(); sandbox.style.display = 'none';
+  studioInitialization.fields = false; updateStudioActions();
   currentArrayBuffer = null;
   if (source === 'docx') activeDocx = null;
   identifyTemplate(source === 'snippet');
@@ -276,7 +323,14 @@ function inspectTemplate(buffer, filename, source = 'docx') {
     badge.textContent = `${filename}: template syntax checked. ${model.fields.length} ${model.fields.length === 1 ? 'field' : 'fields'} found. Generate a test document and review it in Microsoft Word before use.`;
     results.append(badge);
     renderDynamicFields(model.fields, document.getElementById('sandbox-dynamic-container'), document.getElementById('sandbox-dynamic-section'), true);
-    currentArrayBuffer = buffer;
+    for (const input of sandbox.querySelectorAll('[data-dynamic-tag]')) {
+      const tag = input.getAttribute('data-dynamic-tag');
+      if (previous.has(tag)) { input.value = previous.get(tag); input.dataset.studioEdited = 'true'; }
+    }
+    currentArrayBuffer = buffer; lastInspectedBuffer = buffer;
+    studioInitialization.fields = true;
+    applyStudioDynamicSamples();
+    updateStudioActions();
     if (source === 'docx') activeDocx = { name: filename.split(/[\\/]/).pop(), fields: model.fields.length, buffer };
     identifyTemplate(source === 'snippet');
     sandbox.style.display = 'block';
@@ -294,7 +348,8 @@ function inspectTemplate(buffer, filename, source = 'docx') {
 // ============================================================================
 async function runTestRender(download) {
   if (!currentArrayBuffer) { showToast('Upload a document or inspect a snippet first.', 'error'); return; }
-  await primaryFormReady;
+  try { requireStudioReady(); }
+  catch (e) { showToast(e.message, 'error'); return; }
   return GenerationUI.run(download, { buffer: currentArrayBuffer, collect: getFormData });
 }
 

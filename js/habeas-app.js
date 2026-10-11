@@ -9,6 +9,7 @@ function requirePleadingReady() {
 const PRIMARY_FIELDS = ['Jurisdiction', 'Detention Facility', 'Facility', 'Type of Habeas Petition', 'Petition Type', 'Type of Habeas Petition Full', 'Petitioner Name', 'Petitioner First Name', 'Petitioner Middle Name', 'Petitioner Last Name', 'Petitioner Suffix', 'Plaintiff Name', 'Defendant Name', 'Respondent Name', 'Case Number', 'Docket Number'];
 function getFormData() {
   requirePleadingReady();
+  if (typeof requireStudioReady === 'function') requireStudioReady();
   const value = id => document.getElementById(id)?.value ?? '';
   const first = value('petitioner_first_name'), middle = value('petitioner_middle_name'), last = value('petitioner_last_name'), suffix = value('petitioner_suffix');
   // Only the derived full name trims parts and normalizes its suffix separator.
@@ -20,7 +21,7 @@ function getFormData() {
   Object.assign(formData, {
     Jurisdiction: value('jurisdiction'), 'Detention Facility': value('detention_facility'), Facility: value('detention_facility'),
     'Type of Habeas Petition': value('petition_type'), 'Petition Type': value('petition_type'),
-    'Type of Habeas Petition Full': petition?.selectedOptions[0]?.textContent ?? '',
+    'Type of Habeas Petition Full': petition?.value ? petition.selectedOptions[0]?.textContent ?? '' : '',
     'Petitioner Name': fullName, 'Plaintiff Name': fullName,
     'Petitioner First Name': first, 'Petitioner Middle Name': middle, 'Petitioner Last Name': last, 'Petitioner Suffix': suffix,
     'Defendant Name': value('defendant'), 'Respondent Name': value('defendant'), 'Case Number': value('case_number'), 'Docket Number': value('case_number')

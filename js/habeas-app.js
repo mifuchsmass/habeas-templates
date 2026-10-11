@@ -17,9 +17,10 @@ function getFormData() {
   const cleanSuffix = suffix.replace(/^[,\s]+/, '').trim();
   const fullName = [base, cleanSuffix].filter(Boolean).join(base && cleanSuffix ? ', ' : '');
   const petition = document.getElementById('petition_type');
+  const detention = value('detention_facility') === '__other__' ? value('other_detention_location') : value('detention_facility');
   const formData = Object.create(null);
   Object.assign(formData, {
-    Jurisdiction: value('jurisdiction'), 'Detention Facility': value('detention_facility'), Facility: value('detention_facility'),
+    Jurisdiction: value('jurisdiction'), 'Detention Facility': detention, Facility: detention,
     'Type of Habeas Petition': value('petition_type'), 'Petition Type': value('petition_type'),
     'Type of Habeas Petition Full': petition?.value ? petition.selectedOptions[0]?.textContent ?? '' : '',
     'Petitioner Name': fullName, 'Plaintiff Name': fullName,
@@ -68,8 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!document.getElementById('dynamic-fields-container')) return; // Studio binds its own controls.
   initializeDynamicFields();
   const jurisdiction = document.getElementById('jurisdiction'), facility = document.getElementById('detention_facility');
-  DocxEngine.updateFacilityDropdown(facility, jurisdiction.value);
-  jurisdiction.addEventListener('change', () => DocxEngine.updateFacilityDropdown(facility, jurisdiction.value));
+  DocxEngine.bindFacilityControls(jurisdiction, facility);
   document.getElementById('renderBtn').addEventListener('click', () => runPleadingAction(false));
   document.getElementById('downloadBtn').addEventListener('click', () => runPleadingAction(true));
 });

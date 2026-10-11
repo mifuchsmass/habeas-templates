@@ -14,7 +14,7 @@ let templateReadSerial = 0;
 const studioInitialization = { primary: false, fields: false, error: '', bundled: null };
 const STUDIO_PRIMARY_SAMPLES = {
   jurisdiction: 'Massachusetts', detention_facility: 'Plymouth', petition_type: 'Non-GO',
-  petitioner_first_name: 'Jane', petitioner_middle_name: '', petitioner_last_name: 'Doe',
+  petitioner_first_name: 'Jane', petitioner_middle_name: 'M.', petitioner_last_name: 'Doe',
   petitioner_suffix: '', defendant: 'Department of Homeland Security', case_number: 'TEST-CASE-0001'
 };
 const STUDIO_DYNAMIC_SAMPLES = {
@@ -284,9 +284,9 @@ async function loadPrimaryFormFromIndex() {
     for (const [id, sample] of Object.entries(STUDIO_PRIMARY_SAMPLES)) {
       if (id !== 'detention_facility') container.querySelector(`#${id}`).value = sample;
     }
-    DocxEngine.updateFacilityDropdown(facility, jurisdiction.value);
+    DocxEngine.bindFacilityControls(jurisdiction, facility);
     facility.value = STUDIO_PRIMARY_SAMPLES.detention_facility;
-    jurisdiction.addEventListener('change', () => DocxEngine.updateFacilityDropdown(facility, jurisdiction.value));
+    DocxEngine.updateOtherLocationVisibility(facility);
     // A missing bundled template must not prevent testing independent uploads.
     try { studioInitialization.bundled = await DocxEngine.loadTemplate(TEMPLATE_PATH); } catch { /* No bundled samples. */ }
     studioInitialization.primary = true;

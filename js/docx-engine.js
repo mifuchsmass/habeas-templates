@@ -9,7 +9,22 @@ const DocxEngine = {
   },
   updateFacilityDropdown(el, state) {
     if (!el) return;
-    el.replaceChildren(new Option('Select detention facility…', ''), ...(state ? this.STATE_FACILITIES[state] || [{ value: 'N/A', text: 'N/A (Standard / Not Applicable)' }] : []).map(o => new Option(o.text, o.value)));
+    const choices = this.STATE_FACILITIES[state] || [];
+    const otherOnly = state === 'Connecticut' || state === 'Maine';
+    el.replaceChildren(...(otherOnly ? [] : [new Option('Select detention facility…', '')]), ...choices.map(o => new Option(o.text, o.value)));
+    if (state) el.add(new Option('Other detention location…', '__other__'));
+    if (state === 'Connecticut' || state === 'Maine') el.value = '__other__';
+    this.updateOtherLocationVisibility(el, state);
+  },
+  updateOtherLocationVisibility(el = document.getElementById('detention_facility'), state = document.getElementById('jurisdiction')?.value) {
+    if (el && ['Connecticut', 'Maine'].includes(state)) el.value = '__other__';
+    const field = document.getElementById('other-detention-location-field');
+    if (field) field.hidden = el?.value !== '__other__';
+  },
+  bindFacilityControls(jurisdiction, facility) {
+    this.updateFacilityDropdown(facility, jurisdiction.value);
+    jurisdiction.addEventListener('change', () => this.updateFacilityDropdown(facility, jurisdiction.value));
+    facility.addEventListener('change', () => this.updateOtherLocationVisibility(facility));
   },
   async loadTemplate(path) {
     if (!this.templateCache[path]) {
@@ -431,6 +446,14 @@ window.FormStorage = {
       else if (el.type === 'checkbox') el.checked = value === true;
       else el.value = value == null ? '' : String(value);
     }
+    const facility = document.getElementById('detention_facility');
+    // Legacy CT/ME exports used N/A, which is not an actual detention location.
+    if (facility && data.get(TemplateLogic.key('Detention Facility')) === 'N/A' && ['Connecticut', 'Maine'].includes(jurisdiction)) {
+      facility.value = '__other__';
+      const custom = document.getElementById('other_detention_location');
+      if (custom) custom.value = '';
+    }
+    DocxEngine.updateOtherLocationVisibility(facility);
   },
   save(prefix = 'Habeas_Data') {
     try {

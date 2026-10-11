@@ -192,7 +192,7 @@
   });
   await test('Studio has independent synthetic primary defaults',()=>{
     assert(sd.getElementById('petitioner_first_name').value==='Jane');
-    assert(sd.getElementById('petitioner_middle_name').value==='');
+    assert(sd.getElementById('petitioner_middle_name').value==='M.');
     assert(sd.getElementById('petitioner_last_name').value==='Doe');
     assert(sd.getElementById('petitioner_suffix').value==='');
     assert(sd.getElementById('petition_type').value==='Non-GO');
@@ -342,7 +342,7 @@
       fd.getElementById('downloadBtn').click();await until(()=>download);
       assert(fd.getElementById('docx-preview-container').textContent==='');
       fd.getElementById('renderBtn').click();await until(()=>fd.getElementById('generation-status').textContent.includes('Preview ready'));
-      assert(fd.getElementById('docx-preview-container').textContent.includes('Jane Doe'));
+      assert(fd.getElementById('docx-preview-container').textContent.includes('Jane M. Doe'));
       const independent=studio.createDocxFromText('<Country of Citizenship> <Unknown Field>');studio.inspectTemplate(independent,'independent.docx');
       assert([...sd.querySelectorAll('[data-dynamic-tag]')].every(input=>input.value===''));
     }finally{fresh.remove();}
@@ -382,6 +382,84 @@
         assert(fd.querySelector('[data-dynamic-tag="Unknown Field"]').value==='');
       }
     }finally{f.remove();}
+  });
+  await test('custom detention field immediately follows Facility and precedes Petition Type in Attorney and Studio DOM',()=>{
+    for(const document of [doc,sd]){
+      const custom=document.getElementById('other-detention-location-field');
+      assert(custom.previousElementSibling===document.getElementById('facility_field_wrapper'));
+      assert(custom.nextElementSibling===document.getElementById('petition_type').closest('.field'));
+      assert(custom.querySelector('label').textContent==='Facility or ICE office name and/or location');
+      assert(document.getElementById('other_detention_location').placeholder==='Facility or ICE office name and/or location');
+    }
+  });
+  await test('all six jurisdictions support Other with preserved facility values and CT/ME automatic selection',()=>{
+    const states={Massachusetts:['Plymouth','Burlington','Boston'],'Rhode Island':['Wyatt'],'New Hampshire':['Berlin','Strafford'],Vermont:['Northwest'],Connecticut:[],Maine:[]};
+    const jurisdiction=doc.getElementById('jurisdiction'),facility=doc.getElementById('detention_facility'),custom=doc.getElementById('other_detention_location');
+    custom.value='Synthetic office, another state';
+    for(const [state,values] of Object.entries(states)){
+      jurisdiction.value=state;jurisdiction.dispatchEvent(new app.Event('change'));
+      assert(JSON.stringify([...facility.options].map(o=>o.value))===JSON.stringify(['Connecticut','Maine'].includes(state)?['__other__']:['',...values,'__other__']));
+      assert(facility.value===(['Connecticut','Maine'].includes(state)?'__other__':''));
+      facility.value='__other__';facility.dispatchEvent(new app.Event('change'));
+      assert(!doc.getElementById('other-detention-location-field').hidden);
+      assert(doc.getElementById('other_detention_location').getBoundingClientRect().height>0);
+      assert(doc.getElementById('other_detention_location').placeholder==='Facility or ICE office name and/or location');
+      assert(app.getFormData().formData['Detention Facility']==='Synthetic office, another state');
+      const saved=app.FormStorage.snapshot();custom.value='changed';app.FormStorage.restore(saved);
+      assert(custom.value==='Synthetic office, another state' && facility.value==='__other__');
+      assert(!doc.getElementById('other-detention-location-field').hidden);
+      assert(doc.getElementById('other_detention_location').getBoundingClientRect().height>0);
+      assert(doc.getElementById('other_detention_location').placeholder==='Facility or ICE office name and/or location');
+      if(values.length){facility.value=values[0];facility.dispatchEvent(new app.Event('change'));assert(doc.getElementById('other-detention-location-field').hidden);assert(app.getFormData().formData.Facility===values[0]);}
+      assert(custom.value==='Synthetic office, another state');
+    }
+  });
+  await test('blank Other retains literal Detention Facility in actual DOCX and normal warnings for every state',async()=>{
+    const jurisdiction=doc.getElementById('jurisdiction'),facility=doc.getElementById('detention_facility'),custom=doc.getElementById('other_detention_location');
+    const save=app.saveAs;app.saveAs=()=>{};
+    try{
+      for(const state of ['Massachusetts','Rhode Island','New Hampshire','Vermont','Connecticut','Maine']){
+        jurisdiction.value=state;jurisdiction.dispatchEvent(new app.Event('change'));facility.value='__other__';facility.dispatchEvent(new app.Event('change'));custom.value='';
+        const data=app.getFormData();assert(data.formData['Detention Facility']==='' && data.formData.Facility==='');
+        const result=await app.runPleadingAction(true);assert(result);
+        const engine=app.eval('DocxEngine'),text=engine.visible(engine.xml(result.zip.file('word/document.xml').asText(),'review'));
+        assert(text.includes('at the <Detention Facility>.'));
+        assert(result.warnings.missing.includes('Detention Facility'));
+        assert(doc.getElementById('generation-status').textContent.includes('<Detention Facility>'));
+        assert(!text.includes('__other__') && !text.includes('at the N/A'));
+      }
+    }finally{app.saveAs=save;}
+  });
+  await test('Studio custom location JSON transfers to Attorney Form, Preview and Download',async()=>{
+    const buffer=await(await fetch('/templates/petition.docx')).arrayBuffer();studio.inspectTemplate(buffer,'petition.docx');
+    const jurisdiction=sd.getElementById('jurisdiction'),facility=sd.getElementById('detention_facility');
+    jurisdiction.value='Connecticut';jurisdiction.dispatchEvent(new studio.Event('change'));
+    assert(facility.value==='__other__' && !sd.getElementById('other-detention-location-field').hidden);
+    sd.getElementById('other_detention_location').value='Synthetic ICE office, Test City';
+    let json;const save=studio.saveAs;studio.saveAs=blob=>json=blob;
+    try{studio.FormStorage.save();}finally{studio.saveAs=save;}
+    await app.FormStorage.load(json);
+    assert(doc.getElementById('other_detention_location').value==='Synthetic ICE office, Test City');
+    assert(!doc.getElementById('other-detention-location-field').hidden);
+    doc.getElementById('renderBtn').click();await until(()=>doc.getElementById('generation-status').textContent.includes('Preview ready'));
+    assert(doc.getElementById('docx-preview-container').textContent.includes('Synthetic ICE office, Test City'));
+    let download;const old=app.saveAs;app.saveAs=blob=>download=blob;
+    try{doc.getElementById('downloadBtn').click();await until(()=>download);assert(new app.PizZip(await download.arrayBuffer()).file('word/document.xml').asText().includes('Synthetic ICE office, Test City'));}finally{app.saveAs=old;}
+    for(const [state,value] of [['Massachusetts','Plymouth'],['Rhode Island','Wyatt'],['New Hampshire','Berlin']]){
+      app.FormStorage.restore({format:'habeas-form-v3',values:{Jurisdiction:state,'Detention Facility':value}});
+      assert(doc.getElementById('detention_facility').value===value && doc.getElementById('other-detention-location-field').hidden);
+    }
+    for(const state of ['Connecticut','Maine']){
+      doc.getElementById('other_detention_location').value='Previous synthetic location';
+      app.FormStorage.restore({format:'habeas-form-v3',values:{Jurisdiction:state,'Detention Facility':'N/A'}});
+      assert(doc.getElementById('detention_facility').value==='__other__');
+      assert(doc.getElementById('other_detention_location').value==='');
+      assert(app.getFormData().formData['Detention Facility']==='');
+      app.FormStorage.restore({format:'habeas-form-v3',values:{Jurisdiction:state,'Detention Facility':''}});
+      assert(doc.getElementById('detention_facility').value==='__other__');
+      assert(!doc.getElementById('other-detention-location-field').hidden);
+      assert(doc.getElementById('detention_facility').options.length===1);
+    }
   });
   document.getElementById('test-output').textContent=JSON.stringify({results});
 })().catch(e=>document.getElementById('test-output').textContent=JSON.stringify({fatal:e.stack}));

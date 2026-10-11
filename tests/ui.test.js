@@ -4,6 +4,98 @@
   const delay = () => new Promise(r => setTimeout(r, 25));
   const until = async fn => { for(let i=0;i<300;i++){if(fn())return;await delay();}throw Error('Timed out waiting for UI'); };
   const test = async (name, fn) => {document.getElementById('test-output').setAttribute('data-stage', name);try{await fn();results.push({name,passed:true});}catch(e){results.push({name,passed:false,error:e.stack});}};
+  const initialHtml = await (await fetch('/index.html')).text();
+  await test('all four actions are disabled in initial HTML with loading status', () => {
+    const initial = new DOMParser().parseFromString(initialHtml, 'text/html');
+    const buttons = [...initial.querySelectorAll('.action-block button')];
+    assert(buttons.length === 4 && buttons.every(button => button.disabled));
+    assert(initial.getElementById('generation-status').textContent.includes('Loading template fields'));
+  });
+  const delayedApp = async () => {
+    const frame = document.createElement('iframe');
+    const bootstrap = `<base href="${location.origin}/"><script>
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = (path, ...args) => String(path).includes('templates/petition.docx')
+        ? new Promise((resolve, reject) => {
+            window.releaseTemplate = () => originalFetch(path, ...args).then(resolve, reject);
+            window.failTemplate = () => reject(Error('Synthetic template fetch failure'));
+          }) : originalFetch(path, ...args);
+    <\/script>`;
+    frame.srcdoc = initialHtml.replace('<head>', '<head>' + bootstrap);
+    document.body.append(frame);
+    await until(() => frame.contentWindow?.releaseTemplate && frame.contentWindow.runPleadingAction);
+    return { frame, app: frame.contentWindow, doc: frame.contentDocument };
+  };
+  await test('delayed initialization blocks all actions, then restores JSON and downloads without Preview', async () => {
+    const { frame, app, doc } = await delayedApp();
+    try {
+      const buttons = [...doc.querySelectorAll('.action-block button')];
+      assert(buttons.length === 4 && buttons.every(button => button.disabled));
+      await delay(); assert(buttons.every(button => button.disabled));
+      assert(!doc.querySelector('[data-dynamic-tag]'));
+      doc.getElementById('petitioner_first_name').value = 'Synthetic';
+      let downloads = 0, reads = 0, generated = 0, dialogs = 0;
+      app.saveAs = () => downloads++;
+      const engine = app.eval('DocxEngine'), generate = engine.generate;
+      engine.generate = async (...args) => { generated++; return generate.apply(engine, args); };
+      const create = doc.createElement.bind(doc);
+      doc.createElement = (...args) => {
+        const element = create(...args);
+        if (args[0] === 'input') element.click = () => dialogs++;
+        return element;
+      };
+      const saved = { format: 'habeas-form-v3', values: { 'Petitioner First Name': 'Alex', 'Country of Citizenship': 'Synthetic Country' } };
+      const file = { text: async () => { reads++; return JSON.stringify(saved); } };
+      assert(await app.runPleadingAction(false) === null);
+      assert(await app.runPleadingAction(true) === null);
+      assert(await app.GenerationUI.run(true, { templatePath: 'templates/petition.docx', collect: app.getFormData }) === null);
+      app.FormStorage.save(); app.FormStorage.openFileDialog(); await app.FormStorage.load(file);
+      for (const action of [() => app.FormStorage.snapshot(), () => app.FormStorage.restore(saved), () => app.getFormData()]) {
+        let blocked = false; try { action(); } catch (e) { blocked = e.message.includes('still loading'); } assert(blocked);
+      }
+      assert(downloads === 0 && generated === 0 && reads === 0 && dialogs === 0);
+      assert(doc.getElementById('petitioner_first_name').value === 'Synthetic');
+      doc.createElement = create;
+      app.releaseTemplate();
+      await until(() => buttons.every(button => !button.disabled));
+      assert(doc.getElementById('petitioner_first_name').value === 'Synthetic');
+      assert(doc.getElementById('generation-status').textContent.includes('Template fields ready'));
+      await app.FormStorage.load(file);
+      assert(reads === 1 && doc.getElementById('petitioner_first_name').value === 'Alex');
+      assert(doc.querySelector('[data-dynamic-tag="Country of Citizenship"]').value === 'Synthetic Country');
+      assert(app.FormStorage.snapshot().values['Country of Citizenship'] === 'Synthetic Country');
+      app.FormStorage.save(); assert(downloads === 1);
+      let previewCalls = 0, downloaded;
+      app.docx.renderAsync = async () => { previewCalls++; throw Error('Preview must not be needed'); };
+      app.saveAs = (blob, name) => { downloaded = { blob, name }; };
+      doc.getElementById('downloadBtn').click(); await until(() => downloaded);
+      assert(previewCalls === 0 && generated === 1);
+      const zip = new app.PizZip(await downloaded.blob.arrayBuffer());
+      assert(zip.file('word/document.xml').asText().includes('Synthetic Country'));
+      assert(downloaded.name.includes('Alex'));
+      assert(doc.getElementById('docx-preview-container').textContent === '');
+    } finally { frame.remove(); }
+  });
+  for (const failure of ['fetch', 'field creation']) {
+    await test(`${failure} failure keeps actions disabled and instructs refresh`, async () => {
+      const { frame, app, doc } = await delayedApp();
+      try {
+        if (failure === 'fetch') app.failTemplate();
+        else { app.renderDynamicFields = () => { throw Error('Synthetic field creation failure'); }; app.releaseTemplate(); }
+        await until(() => doc.getElementById('generation-status').textContent.includes('Please refresh the page'));
+        const message = doc.getElementById('generation-status').textContent;
+        assert([...doc.querySelectorAll('.action-block button')].every(button => button.disabled));
+        let reads = 0, downloads = 0;
+        app.saveAs = () => downloads++;
+        assert(await app.runPleadingAction(false) === null);
+        assert(await app.runPleadingAction(true) === null);
+        app.FormStorage.save(); app.FormStorage.openFileDialog();
+        await app.FormStorage.load({ text: async () => { reads++; return '{}'; } });
+        assert(reads === 0 && downloads === 0);
+        assert(doc.getElementById('generation-status').textContent === message);
+      } finally { frame.remove(); }
+    });
+  }
   const frame = document.createElement('iframe');frame.src='/index.html';document.body.append(frame);
   await until(()=>frame.contentWindow?.eval('typeof DocxEngine') !== 'undefined' && frame.contentDocument.querySelector('#dynamic-fields-container input'));
   const app=frame.contentWindow, doc=frame.contentDocument; app.DocxEngine=app.eval('DocxEngine');

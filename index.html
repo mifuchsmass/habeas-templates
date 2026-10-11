@@ -88,18 +88,18 @@
   <div class="action-block">
     <!-- Primary Actions -->
     <div class="sandbox-actions">
-      <button type="button" id="renderBtn" class="btn-render">Render Preview 👁️</button>
-      <button type="button" id="downloadBtn" class="btn-download">Download Word Document 📥</button>
+      <button type="button" id="renderBtn" class="btn-render" disabled>Render Preview 👁️</button>
+      <button type="button" id="downloadBtn" class="btn-download" disabled>Download Word Document 📥</button>
     </div>
 
     <!-- Secondary Utilities -->
     <div class="utility-actions">
-      <button type="button" class="btn-secondary" onclick="FormStorage.save()">💾 Save Form Data (.json)</button>
-      <button type="button" class="btn-secondary" onclick="FormStorage.openFileDialog()">📂 Load Saved Data</button>
+      <button type="button" class="btn-secondary" onclick="FormStorage.save()" disabled>💾 Save Form Data (.json)</button>
+      <button type="button" class="btn-secondary" onclick="FormStorage.openFileDialog()" disabled>📂 Load Saved Data</button>
     </div>
   </div>
   
-  <div id="generation-status" class="generation-status" role="status" aria-live="polite"></div>
+  <div id="generation-status" class="generation-status" role="status" aria-live="polite"><p class="generation-state">Loading template fields…</p></div>
 
   <!-- Document Preview Container -->
   <div id="docx-preview-container"></div>

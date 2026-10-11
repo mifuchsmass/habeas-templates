@@ -1,7 +1,14 @@
 /** Form collection shared with the Studio; original values remain unchanged. */
 const TEMPLATE_PATH = 'templates/petition.docx';
+const pleadingInitialization = { ready: false, error: '' };
+function requirePleadingReady() {
+  if (document.getElementById('dynamic-fields-container') && !pleadingInitialization.ready) {
+    throw Error(pleadingInitialization.error || 'Template fields are still loading. Please wait.');
+  }
+}
 const PRIMARY_FIELDS = ['Jurisdiction', 'Detention Facility', 'Facility', 'Type of Habeas Petition', 'Petition Type', 'Type of Habeas Petition Full', 'Petitioner Name', 'Petitioner First Name', 'Petitioner Middle Name', 'Petitioner Last Name', 'Petitioner Suffix', 'Plaintiff Name', 'Defendant Name', 'Respondent Name', 'Case Number', 'Docket Number'];
 function getFormData() {
+  requirePleadingReady();
   const value = id => document.getElementById(id)?.value ?? '';
   const first = value('petitioner_first_name'), middle = value('petitioner_middle_name'), last = value('petitioner_last_name'), suffix = value('petitioner_suffix');
   // Only the derived full name trims parts and normalizes its suffix separator.
@@ -43,9 +50,17 @@ async function initializeDynamicFields() {
   try {
     const fields = DocxEngine.extractCustomFields(await DocxEngine.loadTemplate(TEMPLATE_PATH));
     renderDynamicFields(fields, document.getElementById('dynamic-fields-container'), document.getElementById('dynamic-fields-section'));
-  } catch (e) { GenerationUI.status(`Template could not be loaded: ${e.message}`); }
+    pleadingInitialization.ready = true;
+    document.querySelectorAll('.action-block button').forEach(button => { button.disabled = false; });
+    GenerationUI.status('Template fields ready.');
+  } catch (e) {
+    pleadingInitialization.error = `Template fields could not be initialized: ${e.message}. Please refresh the page.`;
+    GenerationUI.status(pleadingInitialization.error);
+  }
 }
 async function runPleadingAction(download) {
+  try { requirePleadingReady(); }
+  catch (e) { showToast(e.message, 'error'); return null; }
   return GenerationUI.run(download, { templatePath: TEMPLATE_PATH, collect: getFormData });
 }
 document.addEventListener('DOMContentLoaded', () => {

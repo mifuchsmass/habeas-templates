@@ -315,12 +315,16 @@ window.GenerationUI = {
 };
 
 window.FormStorage = {
+  requireReady() {
+    if (typeof requirePleadingReady === 'function') requirePleadingReady();
+  },
   controls() {
     const studio = document.getElementById('sandbox');
     return [...(studio || document).querySelectorAll('input, select, textarea')].filter(el => el.type !== 'file' && el.type !== 'password' && el.id !== 'snippetInput');
   },
   name(el) { return el.getAttribute('data-dynamic-tag') || el.getAttribute('data-form-field') || el.name || el.id; },
   snapshot() {
+    this.requireReady();
     const data = Object.create(null);
     for (const el of this.controls()) {
       const k = this.name(el); if (!k || el.type === 'radio' && !el.checked) continue;
@@ -331,6 +335,7 @@ window.FormStorage = {
     TemplateLogic.values(data); return { format: 'habeas-form-v3', values: data };
   },
   restore(saved) {
+    this.requireReady();
     if (saved?.format !== 'habeas-form-v3' || !saved.values || Array.isArray(saved.values) || typeof saved.values !== 'object') throw Error('This is not a form data file saved by the current version of the Habeas application.');
     const data = TemplateLogic.values(saved.values), controls = this.controls();
     for (const [name, value] of data) if (typeof value === 'number' && (!Number.isFinite(value) || Math.abs(value) > Number.MAX_SAFE_INTEGER)) throw Error(`Saved number for <${name}> is unreliable; save exact text instead.`);
@@ -353,11 +358,13 @@ window.FormStorage = {
     } catch (e) { showToast(e.message, 'error'); }
   },
   openFileDialog() {
+    try { this.requireReady(); }
+    catch (e) { showToast(e.message, 'error'); return; }
     const input = document.createElement('input'); input.type = 'file'; input.accept = '.json';
     input.onchange = () => { if (input.files[0]) this.load(input.files[0]); }; input.click();
   },
   async load(file) {
-    try { this.restore(JSON.parse(await file.text())); showToast('Form data loaded.'); }
+    try { this.requireReady(); this.restore(JSON.parse(await file.text())); showToast('Form data loaded.'); }
     catch (e) { showToast(`Could not load form data: ${e.message}`, 'error'); }
   }
 };

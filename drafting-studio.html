@@ -26,7 +26,7 @@
       
       <div class="password-input-wrap">
         <input type="password" id="accessPin" placeholder="Enter Access Key" autocomplete="off">
-        <button type="button" class="btn-toggle-pw" id="togglePwBtn" title="Show/Hide Password">👁️</button>
+        <button type="button" class="btn-toggle-pw" id="togglePwBtn" title="Show/Hide Access Key">👁️</button>
       </div>
 
       <button type="button" class="btn-primary" id="unlockBtn">Unlock Studio</button>
@@ -37,14 +37,17 @@
   <!-- 2. Main Studio Interface -->
   <h1>⚖️ Volunteer Drafting Studio & Logic Inspector</h1>
   <p class="studio-subtitle">
-    Drop your draft <b>.docx</b> template below or paste a text snippet to automatically verify all <code>[IF]</code>, <code>[ELSE IF]</code>, <code>[ELSE]</code>, and <code>[END IF]</code> tags before releasing to immigration attorneys.
+    Upload a Word template to check its conditional instructions, or paste text to inspect its syntax. Test the generated document in Microsoft Word before using it.
   </p>
 
   <!-- Dropzone -->
-  <div class="dropzone" id="dropzone">
-    <div class="icon-medium">📄</div>
-    <strong class="dropzone-highlight-text">Drag &amp; Drop your .docx template here</strong>
-    <p>or click to browse from your computer</p>
+  <div class="dropzone" id="dropzone" role="button" tabindex="0">
+    <div class="icon-medium" aria-hidden="true">📄</div>
+    <div role="status" aria-live="polite" aria-atomic="true">
+      <strong class="dropzone-highlight-text" id="upload-template-name" style="overflow-wrap: anywhere;">Drag &amp; Drop your .docx template here</strong>
+      <p id="upload-template-detail" hidden></p>
+      <p id="upload-template-hint">or click to browse from your computer</p>
+    </div>
   </div>
   <!-- File Input (Placed outside dropzone to prevent event bubbling) -->
   <input type="file" id="fileInput" accept=".docx" style="display: none;">
@@ -54,18 +57,20 @@
 
   <!-- Snippet Textarea Box -->
   <div class="field">
-    <textarea id="snippetInput" rows="5" placeholder="Paste paragraph text directly from Word here to test logic (e.g., 1. Petitioner [Petitioner Name] [IF Jurisdiction = &quot;Massachusetts&quot;]...[END IF])..."></textarea>
+    <textarea id="snippetInput" rows="5" placeholder="Paste paragraph text directly from Word here to test logic (e.g., 1. Petitioner &lt;Petitioner Name&gt; {IF &lt;Jurisdiction&gt; = &quot;Massachusetts&quot;}...{END IF})..."></textarea>
     <button type="button" id="inspectSnippetBtn" class="btn-primary" style="margin-top: 8px;" disabled>Inspect Snippet 🔍</button>
   </div>
 
   <!-- Validation Results -->
   <div id="results"></div>
 
+  <div id="active-template" class="active-template" aria-live="polite">No active DOCX template.</div>
+
   <!-- 3. Live Test Sandbox -->
   <div class="sandbox" id="sandbox">
     <div class="sandbox-header">
       <h3>🧪 Live Test Sandbox</h3>
-      <p>Primary master fields and discovered template fields are <b>automatically synchronized</b>. Change values to verify conditional rendering:</p>
+      <p>Enter test values below to see how the current template or snippet handles fields and conditional text.</p>
     </div>
     
     <!-- Pinned Primary Form Fields Container (Cloned from index.html) -->
@@ -87,7 +92,7 @@
       <!-- Primary Actions -->
       <div class="sandbox-actions">
         <button type="button" id="renderBtn" class="btn-render">Render Preview 👁️</button>
-        <button type="button" id="downloadBtn" class="btn-download">Download Compiled DOCX 📥</button>
+        <button type="button" id="downloadBtn" class="btn-download">Download Word Document 📥</button>
       </div>
 
       <!-- Secondary Utilities -->
@@ -97,12 +102,16 @@
       </div>
     </div>
     
+    <div id="generation-status" class="generation-status" role="status" aria-live="polite"></div>
+
     <!-- Preview Container -->
     <div id="docx-preview-container"></div>
   </div>
 
   <!-- Engine and Studio Scripts -->
+  <script src="js/template-logic.js"></script>
   <script src="js/docx-engine.js"></script>
+  <script src="js/habeas-app.js"></script>
   <script src="js/drafting-studio.js"></script>
 </body>
 </html>

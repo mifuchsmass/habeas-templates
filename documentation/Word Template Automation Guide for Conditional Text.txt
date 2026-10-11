@@ -1,237 +1,232 @@
-================================================================================
-           WORD TEMPLATE AUTOMATION GUIDE FOR HABEAS PLEADINGS
-================================================================================
+WORD TEMPLATE AUTOMATION GUIDE FOR CONDITIONAL TEXT — VERSION 3
 
-This guide explains how to format Microsoft Word (.docx) templates so our
-habeas petition generator can automatically insert petitioner details, 
-court headers, pronoun variations, custom case facts, and conditional paragraphs.
+This browser application produces an editable DOCX for one petitioner. Draft
+with the defined terms Petitioner and Petitioner's and ordinary singular verbs:
 
+  Petitioner <Petitioner Name> is detained at <Detention Facility>.
+  Petitioner brings this petition on Petitioner's own behalf.
 
-1. HOW PLACEHOLDERS WORK (FILLING IN BLANKS)
---------------------------------------------------------------------------------
-Whenever you want the generator to fill in information from the form, wrap the
-field name in square brackets: [Field Name]
+There is no automatic pronoun or grammatical agreement feature. Ordinary he,
+she, and they remain literal words. <He> and <Pronouns>, if deliberately used,
+are ordinary case fields. No macros or VBA are needed.
 
-A. Standard Primary Fields:
-• [Petitioner Name]           -> Combines First, Middle, Last, and Suffix
-                                 (e.g., "Jane M. Doe, Jr.")
-• [Petitioner First Name]     -> "Jane"
-• [Petitioner Middle Name]    -> "M."
-• [Petitioner Last Name]      -> "Doe"
-• [Petitioner Suffix]         -> "Jr."
-• [Defendant Name] / [Respondent Name]
-• [Case Number] / [Docket Number]
-• [Jurisdiction]
-• [Detention Facility] / [Facility]
-• [Type of Habeas Petition]   -> Short code (e.g., "GO Class" or "Non-GO")
-• [Type of Habeas Petition Full] -> Full text from dropdown
+1. ORDINARY FIELDS
 
-B. Custom Field Auto-Discovery (Tier 2 Fields):
-You are NOT limited to the primary fields above! If your pleading needs specific 
-factual details, simply type any bracketed tag in your Word template, such as:
-• [Alien Registration Number]
-• [Date of Entry]
-• [Arresting Agency]
-• [Prior Removal Order Date]
+Use one pair of angle brackets:
 
-When you or a volunteer load the template into the generator, the engine 
-AUTOMATICALLY DISCOVERS these tags and creates form input fields for them.
+  <Petitioner Name>     <Detention Facility>     <Days In Custody>
 
-C. Key Formatting Features:
-• Smart Caps:
-  - If you type the placeholder in ALL CAPS: [PETITIONER NAME]
-    -> Outputs in uppercase: JANE M. DOE
-  - If you type the placeholder normally: [Petitioner Name]
-    -> Outputs as entered: Jane M. Doe
-• Missing Data Safeguard: If a user leaves a form field blank, the document 
-  prints "*** MISSING DATA ***" in that spot so incomplete pleadings are never 
-  accidentally filed.
-• Curly Quotes: Word automatically turns straight quotes into curly "smart quotes." 
-  The engine handles both straight and curly quotes automatically.
+New names automatically create input fields, including names used only inside
+conditions or footnotes. Repeated names create one input. Names ignore case and
+spaces immediately inside the brackets. < Facility > and <FACILITY> refer to
+the same value. Spaces inside names remain meaningful: <Date of Entry>,
+<Date-of-Entry>, and <Date_of_Entry> are three separate fields. <Facility> and
+<Detention Facility> are distinct names with explicit shared form mappings.
+Conflicting values for the same case-insensitive name cause an error.
 
+Punctuation, quotation marks, and Unicode names are supported. Names must be
+nonblank and no longer than 256 characters; angle brackets, braces, backslashes,
+control characters, and paragraph breaks inside names are rejected clearly.
+Case matching uses locale-independent Unicode lowercase, without changing
+punctuation, interior spacing, or Unicode normalization.
 
-2. AUTOMATIC PRONOUN & GENDER TOGGLING
---------------------------------------------------------------------------------
-The intake form includes a 1-click pronoun selector:
-  • He / Him           (Default Male)
-  • She / Her          (Female)
-  • They / Them        (Gender-Neutral / Non-Binary)
-  • Petitioner         (Noun Only / Formal Pleading)
+Existing primary fields include Jurisdiction, Detention Facility, Facility,
+Type of Habeas Petition, Petition Type, Type of Habeas Petition Full,
+Petitioner Name, Petitioner First Name, Petitioner Middle Name,
+Petitioner Last Name, Petitioner Suffix, Plaintiff Name, Defendant Name,
+Respondent Name, Case Number, and Docket Number.
 
-A. Output Reference Matrix
+The short petition code and separately defined full-text field remain distinct.
+Use stored dropdown values in comparisons: for example "Plymouth" or "Non-GO".
+A dropdown display label is not silently substituted or accepted as an alias.
 
-| Tag Typed in Word       | He / Him (Default) | She / Her | They / Them | Petitioner (Noun) |
-| :---                    | :---               | :---      | :---        | :---              |
-| [he/she] or [he]        | he                 | she       | they        | Petitioner        |
-| [He/She] or [He]        | He                 | She       | They        | Petitioner        |
-| [HE/SHE] or [HE]        | HE                 | SHE       | THEY        | PETITIONER        |
-| [him/her] or [him]      | him                | her       | them        | Petitioner        |
-| [Him/Her] or [Him]      | Him                | Her       | Them        | Petitioner        |
-| [HIM/HER] or [HIM]      | HIM                | HER       | THEM        | PETITIONER        |
-| [his/her] or [his]      | his                | her       | their       | Petitioner's      |
-| [His/Her] or [His]      | His                | Her       | Their       | Petitioner's      |
-| [HIS/HER] or [HIS]      | HIS                | HER       | THEIR       | PETITIONER'S      |
-| [hers] or [his/hers]    | his                | hers      | theirs      | Petitioner's      |
-| [himself/herself]       | himself            | herself   | themselves  | Petitioner        |
-| [Petitioner]            | Petitioner         | Petitioner| Petitioner  | Petitioner        |
-| [Petitioner's]          | Petitioner's       | Petitioner's| Petitioner's| Petitioner's    |
+Values are inserted exactly as entered. ALL-CAPS names do not uppercase data.
+The derived full petitioner name trims the separate parts, joins nonblank first,
+middle, and last parts with single spaces, and adds a trimmed suffix using a
+comma and space when a base name exists. Leading commas/spaces on that derived
+suffix are removed. Separate name-part fields retain their original values.
+A suffix alone counts as name information. No name information leaves
+<Petitioner Name> visible; Draft may appear only in a generic filename.
 
-B. Verb & Grammatical Agreement Tags
-When "They / Them" is selected, standard English grammar uses plural verb forms 
-("they are", "they were", "they seek"). The engine provides built-in agreement tags:
+A missing or whitespace-only ordinary value leaves its original placeholder
+visible and produces a screen warning. 0 and false are not blank. Missing data
+never becomes *** MISSING DATA ***. Data is never processed again as template
+instructions after insertion.
 
-| Agreement Tag Typed     | He / Him           | She / Her | They / Them | Petitioner        |
-| :---                    | :---               | :---      | :---        | :---              |
-| [is/are]                | is                 | is        | **are**     | is                |
-| [was/were]              | was                | was       | **were**    | was               |
-| [has/have]              | has                | has       | **have**    | has               |
-| [brings/bring]          | brings             | brings    | **bring**   | brings            |
-| [seeks/seek]            | seeks              | seeks     | **seek**    | seeks             |
-| [contends/contend]      | contends           | contends  | **contend** | contends          |
-| [s] (3rd-person suffix) | s                  | s         | *(empty)*   | s                 |
-| [an individual/individuals] | an individual  | an individual | an individual | an individual |
+2. IF / ELSE IF / ELSE / END IF
 
-C. The 2 Golden Rules for Drafting with Verbs:
-• RULE 1: When the subject is a named party or title ("Petitioner [Petitioner Name]"):
-  Named parties are ALWAYS singular nouns in legal pleadings. Hardcode singular verbs:
-    ❌ INCORRECT: Petitioner [Petitioner Name] [is/are] detained...
-    ✅ CORRECT:   Petitioner [Petitioner Name] is detained in [Detention Facility].
+  {IF <Days In Custody> >= 180}
+  Petitioner has been detained for at least 180 days.
+  {ELSE IF <Days In Custody> >= 90}
+  Petitioner has been detained for at least 90 days.
+  {ELSE}
+  Petitioner has been detained for fewer than 90 days.
+  {END IF}
 
-• RULE 2: When the subject is the Pronoun Placeholder (`[He/She]` or `[He]`):
-  Use the verb agreement tags directly after pronoun placeholders:
-    ✅ CORRECT:   [He/She] [is/are] currently detained in administrative custody.
-    ✅ CORRECT:   [He/She] [seeks/seek] emergency injunctive relief.
-    ✅ CORRECT:   [He/She] remain[s] in custody without statutory authority.
+The first definitely qualifying alternative is selected. ELSE is optional;
+several ELSE IF alternatives are allowed. IF blocks may be nested. Keywords
+are case-insensitive; uppercase is preferred. Each IF needs END IF. Duplicate
+ELSE, ELSE IF after ELSE, orphan instructions, and invalid conditions are errors.
+All instructions are checked, including alternatives excluded in this case.
 
-D. Conditional Pronoun Blocks:
-You can also write condition blocks based on the selected pronoun option:
-  [IF Pronouns = "nonbinary"]
-  Petitioner uses gender-neutral they/them pronouns.
-  [ELSE IF Pronouns = "petitioner"]
-  Petitioner is referred to exclusively by title as "Petitioner."
-  [END IF]
+Each complete instruction must fit within ONE Word paragraph. Word's visual
+line wrapping is fine. A Word line break (Shift+Enter) within the instruction
+is also supported. An Enter paragraph break is not. Formatting runs may divide
+an instruction or field, including bold/italic changes. There is no limit on
+the paragraphs between instructions. For a whole optional paragraph, place its
+opening and closing instructions on separate unnumbered paragraphs. Inline
+instructions can control part of a paragraph; multi-paragraph blocks also work.
 
+A block must stay in the main body or within one individual footnote. It must
+not start in one footnote and end in another, or cross between body and footnote.
 
-3. CONDITIONAL RULES (CHOOSING WHICH LANGUAGE TO INCLUDE)
---------------------------------------------------------------------------------
-You can show or hide paragraphs based on jurisdiction, case type, facility, or facts.
+3. COMPARISONS AND LOGIC
 
-A. Single Condition ([IF] ... [END IF])
-  [IF Jurisdiction = "Massachusetts"]
-  See Mass. Gen. Laws ch. 260, § 2.
-  [END IF]
+Put spaces on BOTH sides of the comparison symbol:
 
-B. Two Options ([IF] ... [ELSE] ... [END IF])
-  [IF Type of Habeas Petition = "GO Class"]
-  Petitioner brings this action on behalf of all similarly situated individuals.
-  [ELSE]
-  Petitioner brings this action individually.
-  [END IF]
+  {IF <Detention Facility> = "Plymouth"}
+  {IF <Days In Custody> >= 180}
+  {IF <Days In Custody> < <Maximum Days>}
+  {IF <Current Facility> != <Prior Facility>}
 
-C. Multiple Branches ([IF] ... [ELSE IF] ... [ELSE] ... [END IF])
-  [IF Jurisdiction = "Massachusetts"]
-  UNITED STATES DISTRICT COURT FOR THE DISTRICT OF MASSACHUSETTS
-  [ELSE IF Jurisdiction = "Rhode Island"]
-  UNITED STATES DISTRICT COURT FOR THE DISTRICT OF RHODE ISLAND
-  [ELSE]
-  UNITED STATES DISTRICT COURT FOR THE DISTRICT OF [JURISDICTION]
-  [END IF]
+Supported symbols: =, !=, <, >, <=, >=.
+Quote text. Both straight double quotes and Word smart double quotes work;
+straight quotes are preferred. Single quotes are not text delimiters.
+Text comparisons ignore case and outer whitespace, but inserted text does not.
+Text equality of two fields remains textual: "0180" and "180" differ.
 
+Use unquoted numbers for numerical comparisons. Comparing fields using <, >,
+<=, or >= is numerical. Equality/inequality becomes numerical if either operand
+is an unquoted number. Ordered comparisons do not accept quoted text values.
 
-4. COMPARISONS & LOGICAL OPERATORS
---------------------------------------------------------------------------------
-You can combine multiple criteria:
-• Equals:                   [IF Jurisdiction = "Massachusetts"]
-• Does NOT equal:           [IF Jurisdiction != "Massachusetts"]
-• Both must be true (AND):  [IF Jurisdiction = "Massachusetts" and Petition Type = "GO Class"]
-• Either can be true (OR):  [IF Jurisdiction = "Massachusetts" or Jurisdiction = "Rhode Island"]
-• Numeric Comparisons:      [IF Days In Custody >= 180]
+Accepted numbers include 180, 180.5, -25, 0, 1,200, and 12,345.67. Commas must
+form groups of three digits after the first group. Scientific notation, words,
+approximate descriptions, a leading plus, .5, 5., and currency notation are
+not accepted; use 0.5 and 5.0. Outer whitespace is ignored for evaluation.
+Decimal comparison is exact, including very large and precise decimals, up to
+1,000 characters per numeric value. Larger attorney values are unresolved;
+malformed or oversized numeric literals in templates are errors.
 
-Note: Dropdown values can be matched either by short value ("Plymouth") or by full 
-dropdown label ("Plymouth (Plymouth County Correctional Facility)").
+Conditions support AND, OR, NOT, AND NOT, and parentheses:
 
+  {IF <Days In Custody> >= 180 AND NOT (<Detention Facility> = "Plymouth")}
 
-5. AVOIDING BLANK LINES & KEEPING AUTO-NUMBERING INTACT
---------------------------------------------------------------------------------
-RULE 1: Changing text INSIDE a numbered paragraph
-Keep all conditional tags on the SAME line as the paragraph text:
-  3. This action is brought pursuant to [Jurisdiction] law. [IF Jurisdiction = "Massachusetts"]See Mass. Gen. Laws ch. 260, § 2.[ELSE]See applicable statutory provisions.[END IF]
+Precedence: comparisons, NOT, AND, then OR. Parentheses override that order.
+Inside quoted text, backslash may escape a quote or another backslash:
+"A\"B" and "C:\\Folder". Other quoted escapes are errors. Braces within quoted
+text are literal. Field names may contain quotes but cannot contain backslashes.
+No template expression executes JavaScript or other program commands.
 
-RULE 2: Making an ENTIRE numbered paragraph optional
-Put [IF] and [END IF] on their OWN unnumbered lines before and after the paragraph:
-  [IF Type of Habeas Petition = "GO Class"]
-  4. Petitioner brings this class action pursuant to Fed. R. Civ. P. 23(b)(2).
-  [END IF]
+4. UNRESOLVED CONDITIONS
 
-  When "Non-GO" is selected, Paragraph 4 disappears entirely, and subsequent 
-  paragraphs automatically re-number consecutively with no blank gaps.
+Conditions have TRUE, FALSE, or UNKNOWN outcomes. Missing data or an invalid
+attorney-entered number may make a needed condition UNKNOWN. UNKNOWN is never
+silently FALSE. TRUE OR UNKNOWN is TRUE; FALSE AND UNKNOWN is FALSE. TRUE AND
+UNKNOWN, FALSE OR UNKNOWN, and NOT UNKNOWN are UNKNOWN. A later ELSE IF cannot
+select its alternative while an earlier alternative remains UNKNOWN.
 
+For UNKNOWN, the complete original block remains editable: IF, every ELSE IF,
+ELSE if present, END IF, and all alternative text. Known ordinary values are
+inserted throughout every retained alternative. Missing ordinary placeholders
+remain. Field references and quotes inside retained instructions are unchanged.
+Nested blocks inside an UNKNOWN outer block remain without evaluation. If the
+outer block is resolved, an UNKNOWN inner block is preserved on its own.
 
-6. NESTING CONDITIONS (CONDITIONS INSIDE CONDITIONS)
---------------------------------------------------------------------------------
-You can nest conditional blocks inside other conditional blocks. Ensure every [IF] 
-has a matching [END IF]:
+Example when Days In Custody is blank and Petitioner Name is Alex Morgan:
 
-  [IF Jurisdiction = "Massachusetts"]
-    [IF Type of Habeas Petition = "GO Class"]
-      Massachusetts GO Class Claims
-    [ELSE]
-      Massachusetts Individual Claims
-    [END IF]
-  [ELSE]
-    Out-of-District Claims
-  [END IF]
+  {IF <Days In Custody> >= 180}
+  Alex Morgan has been detained for at least 180 days.
+  {ELSE}
+  Alex Morgan has been detained for fewer than 180 days.
+  {END IF}
 
+No warning paragraphs, Word comments, or banners are added to the pleading.
 
-7. VALIDATING YOUR TEMPLATES (THE DRAFTING STUDIO)
---------------------------------------------------------------------------------
-Before distributing new templates to attorneys, always test them in the 
-Volunteer Drafting Studio (`studio.html`):
+5. LITERAL TEXT
 
-1. Open `studio.html` in your browser.
-2. Drag and drop your `.docx` file into the upload zone (or paste a paragraph snippet).
-3. The Logic Inspector will immediately check for:
-   • Unclosed `[IF]` or `[ELSE IF]` tags
-   • Orphaned `[ELSE]` or `[END IF]` tags
-   • Out-of-order tags (`[ELSE IF]` placed after `[ELSE]`)
-   • Unbalanced quotation marks
-4. If errors are found, the studio highlights the exact paragraph snippet and gives 
-   step-by-step instructions on how to fix it in Word using Ctrl+F.
-5. Use the Live Test Sandbox to simulate different form inputs and view a live 
-   rendered preview or compiled `.docx` download.
+Square brackets always remain ordinary legal writing: [sic], [T]he, [the
+petitioner], and claim[s]. Square brackets are not template syntax.
 
+Escape a literal angle-bracket expression or conditional instruction:
 
-8. COMPLETE SAMPLE TEMPLATE
---------------------------------------------------------------------------------
-[IF Jurisdiction = "Massachusetts"]IN THE UNITED STATES DISTRICT COURT FOR THE DISTRICT OF MASSACHUSETTS[ELSE IF Jurisdiction = "Rhode Island"]IN THE UNITED STATES DISTRICT COURT FOR THE DISTRICT OF RHODE ISLAND[ELSE]IN THE UNITED STATES DISTRICT COURT FOR THE DISTRICT OF [JURISDICTION][END IF]
+  \<user@example.com>           produces <user@example.com>
+  \{IF <Days In Custody> >= 180} produces {IF <Days In Custody> >= 180}
 
+Those backslashes disappear, and fields within an escaped instruction are not
+interpreted. Unrelated backslashes remain. Escape each instruction separately
+when showing a complete literal example block in a template.
 
-_________________________________________  )
-[PETITIONER NAME],                         )
-Petitioner,                                )
-v.                                         )   DOCKET NO. [CASE NUMBER]
-[DEFENDANT NAME],                          )
-Respondent.                                )
-_________________________________________  )
+6. WORD STRUCTURE AND FOOTNOTES
 
+The engine preserves ordinary paragraph/run properties, bold/italic and other
+character formatting, numbered/bulleted lists, simple tables, existing footnote
+reference IDs, footnote content/styles, and package relationships. Replacement
+text starts in the first run of the placeholder; other runs retain their own
+formatting. Unmodified Word parts remain unchanged.
 
-PETITION FOR WRIT OF HABEAS CORPUS
+Conditions can control multiple paragraphs, a whole table, text within a cell,
+and complete table rows. When control instructions cross different table cells,
+put each instruction on its own otherwise empty table row. Do not split one
+instruction across cells. Retained cells keep their required paragraph.
 
+Footnotes support ordinary fields, nested conditions, alternatives, UNKNOWN,
+and the same warnings as body text. Each footnote is an independent boundary.
+Excluding a body paragraph or inline branch removes its references and unused
+normal footnotes; separator notes and relationships remain. A footnote's own
+reference marker is retained even if its initial instruction paragraph is
+removed. Word determines visible numbering from surviving references.
 
-1. Petitioner, [Petitioner Name], is an individual currently detained at [Detention Facility] in [Jurisdiction]. Petitioner brings this petition on [his/her] own behalf.
+Headers, footers, endnotes, text boxes, nested tables, hyperlinks, content
+controls, Word field-code paragraphs, and tracked-change structures are not
+active automation targets. Literal content may pass through untouched when
+safe; automation there is an error. Conditional blocks intersecting bookmarks,
+comments, tracked changes, content controls, or section-break paragraphs are
+rejected. Partial deletion in a paragraph containing drawings or symbols is rejected.
+Conditional control of only part of a table with merged rows/cells is rejected;
+an entire such table can be controlled from outside its boundaries.
+A generation error means the template must be adjusted rather than repaired by
+a macro. Studio checks and generation checks share these structure rules.
 
-2. At all times relevant hereto, Petitioner was held in custody by Respondent [Defendant Name]. [He/She] [is/are] currently detained without statutory authority.
+Open representative outputs in Microsoft Word on Windows before acceptance.
+Check repair warnings, selected/preserved language, formatting, numbering,
+tables, footnotes, references, and relationships. A browser preview and XML
+checks alone do not establish Word acceptance.
 
-3. [He/She] [was/were] denied an individualized bond hearing before an Immigration Judge, violating [his/her] Fifth Amendment due process rights.
+7. PREVIEW, DOWNLOAD, WARNINGS, SAVE AND LOAD
 
-4. This action is brought pursuant to [Jurisdiction] law. [IF Jurisdiction = "Massachusetts"]See Mass. Gen. Laws ch. 260, § 2.[ELSE IF Jurisdiction = "Rhode Island"]See R.I. Gen. Laws § 10-9-1.[ELSE]See applicable federal statutory provisions.[END IF]
+The four existing buttons retain their two-by-two arrangement. Preview and
+Download independently generate from current form entries. Download does not
+require Preview. Missing fields and unresolved conditions allow a valid draft
+download with warnings. Template errors and generation failures do not.
 
-[IF Type of Habeas Petition = "GO Class"]
-5. Petitioner brings this action on behalf of all similarly situated parties as a GO Class proceeding.
-[END IF]
+The compact status area below the four buttons lists unresolved conditions
+first and missing ordinary fields second. Details start closed and scroll when
+expanded. Each missing field is listed once. Warnings describe surviving output,
+including retained alternatives and referenced footnotes, rather than excluded
+text. Nested preserved conditions are marked not evaluated and are not counted
+as additional UNKNOWN evaluations. Definite decisions do not warn about missing
+facts that cannot affect their result.
 
-6. [IF Type of Habeas Petition = "GO Class"]Petitioner seeks class-wide declaratory and injunctive relief on behalf of all class members.[ELSE]Petitioner seeks individual habeas corpus relief and an immediate bond hearing for [himself/herself].[END IF]
+Every Preview or Download replaces warnings with the current attempt's results.
+If attempts overlap, only the most recently started attempt controls status and
+preview. A pending attempt keeps the previous completed preview visible. Preview
+failure is reported separately when the DOCX itself was generated successfully.
 
+Save Form Data creates a current-format JSON file containing exact control
+values without a pronoun selection. Load matches saved control names without
+case sensitivity, preserves meaningful name separators, and handles punctuation
+safely. Old development JSON files are not supported. Save and Load do not
+generate a document or alter the current warning panel. Click Preview or Download
+after loading to generate using the loaded values.
 
-DATED this _____ day of ____________, 2026.
-================================================================================
+8. VOLUNTEER DRAFTING STUDIO & LOGIC INSPECTOR
+
+Use drafting-studio.html. Upload or drag in a DOCX, or paste text and click
+Inspect Snippet. Actual pasted paragraph breaks are Word paragraph breaks;
+visual wrapping is not. Primary case fields and discovered fields remain in the
+existing sandbox. Use Preview/Download and Save/Load to test case values.
+
+The inspector reports syntax and supported Word-boundary checks, with locations
+in errors. It does not label a template Ready for Production based on tag balance.
+Generation and actual Microsoft Word inspection remain necessary. The inspector
+and generator use the same field, condition, and structural interpretation.

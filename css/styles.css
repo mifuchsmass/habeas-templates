@@ -54,45 +54,6 @@ input:focus, select:focus, textarea:focus {
   gap: 8px;
 }
 
-/* Segmented Pronoun / Party Selector */
-.segmented-control {
-  display: flex;
-  background: #e2e8f0;
-  padding: 4px;
-  border-radius: 8px;
-  gap: 4px;
-}
-
-.segmented-control input[type="radio"] {
-  display: none;
-}
-
-.segmented-control label {
-  flex: 1;
-  text-align: center;
-  padding: 9px 12px;
-  margin-bottom: 0;
-  font-size: 13px;
-  font-weight: 500;
-  color: #475569;
-  background: transparent;
-  border-radius: 6px;
-  cursor: pointer;
-  user-select: none;
-  transition: all 0.15s ease-in-out;
-}
-
-.segmented-control label:hover {
-  color: #0f172a;
-}
-
-.segmented-control input[type="radio"]:checked + label {
-  background: #ffffff;
-  color: #0056b3;
-  font-weight: 700;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
-}
-
 /* ==========================================================================
    DYNAMIC DISCOVERED FIELDS SECTION (TIER 2)
    ========================================================================== */
@@ -559,3 +520,13 @@ button.btn-primary:disabled,
     transform: translateY(0);
   }
 }
+/* Compact generation diagnostics; expanded details scroll independently. */
+.generation-status { font-size: 13px; margin: 8px 0; }
+.generation-status p { margin: 4px 0; }
+.generation-status summary { cursor: pointer; font-weight: 600; }
+.warning-details { max-height: 150px; overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding-left: 24px; }
+
+.generation-summary { font-weight: 700; }
+.generation-status.review-required { border-left: 3px solid #b45309; padding-left: 12px; }
+.active-template { margin: 16px 0 8px; padding: 10px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; }
+.active-template p { margin: 2px 0; }

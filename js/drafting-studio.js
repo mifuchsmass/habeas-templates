@@ -7,6 +7,64 @@
 // ============================================================================
 const ACCESS_PASSWORD = "Habeas123!";
 let currentArrayBuffer = null;
+let lastInspectedBuffer = null;
+let primaryFormReady;
+let activeDocx = null;
+let templateReadSerial = 0;
+const studioInitialization = { primary: false, fields: false, error: '', bundled: null };
+const STUDIO_PRIMARY_SAMPLES = {
+  jurisdiction: 'Massachusetts', detention_facility: 'Plymouth', petition_type: 'Non-GO',
+  petitioner_first_name: 'Jane', petitioner_middle_name: 'M.', petitioner_last_name: 'Doe',
+  petitioner_suffix: '', defendant: 'Department of Homeland Security', case_number: 'TEST-CASE-0001'
+};
+const STUDIO_DYNAMIC_SAMPLES = {
+  'Country of Citizenship': 'Fictional Country', 'Continuous Residence Date': 'January 1, 2020',
+  'Date of Entry': 'January 1, 2020', 'Entry Location': 'Fictional Entry Location', 'Date of Arrest': 'January 1, 2026'
+};
+function requireStudioReady() {
+  if (!document.getElementById('sandbox')) return;
+  if (!studioInitialization.primary || !studioInitialization.fields) {
+    throw Error(studioInitialization.error || 'Studio form fields are not ready. Wait for initialization and inspect a template first.');
+  }
+}
+function updateStudioActions() {
+  const ready = studioInitialization.primary && studioInitialization.fields;
+  document.querySelectorAll('#sandbox .action-block button').forEach(button => { button.disabled = !ready; });
+}
+function sameStudioTemplate(a, b) {
+  if (!a || !b || a.byteLength !== b.byteLength) return false;
+  const other = new Uint8Array(b);
+  return new Uint8Array(a).every((byte, i) => byte === other[i]);
+}
+function applyStudioDynamicSamples() {
+  if (!studioInitialization.primary || !studioInitialization.bundled || !currentArrayBuffer) return;
+  if (!sameStudioTemplate(studioInitialization.bundled, currentArrayBuffer)) return;
+  for (const input of document.querySelectorAll('#sandbox [data-dynamic-tag]')) {
+    const sample = STUDIO_DYNAMIC_SAMPLES[input.getAttribute('data-dynamic-tag')];
+    if (sample !== undefined && !input.value && !input.dataset.studioEdited) input.value = sample;
+  }
+}
+function updateUploadIndicator() {
+  const name = document.getElementById('upload-template-name');
+  const detail = document.getElementById('upload-template-detail');
+  const hint = document.getElementById('upload-template-hint');
+  if (!name || !detail || !hint) return;
+  name.textContent = activeDocx ? `Loaded: ${activeDocx.name}` : 'Drag & Drop your .docx template here';
+  detail.hidden = !activeDocx;
+  detail.textContent = activeDocx ? `${activeDocx.fields} ${activeDocx.fields === 1 ? 'field' : 'fields'} detected · Template syntax checked` : '';
+  hint.textContent = activeDocx ? 'Click here or drop another Word document to replace it' : 'or click to browse from your computer';
+}
+
+function identifyTemplate(snippet = false) {
+  updateUploadIndicator();
+  const area = document.getElementById('active-template'); if (!area) return;
+  area.replaceChildren();
+  const title = document.createElement('strong'); title.textContent = activeDocx ? `Active template: ${activeDocx.name}` : 'No active DOCX template.'; area.append(title);
+  if (activeDocx) {
+    const detail = document.createElement('p'); detail.textContent = `${activeDocx.fields} ${activeDocx.fields === 1 ? 'field' : 'fields'} detected · Template syntax checked · Word output not yet verified.`; area.append(detail);
+  }
+  if (snippet) { const note = document.createElement('p'); note.textContent = 'Sandbox source: pasted text snippet.'; area.append(note); }
+}
 
 // ============================================================================
 // 2. AUTHENTICATION & UI EVENTS
@@ -32,8 +90,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     inspectSnippetBtn.addEventListener('click', () => {
-      const text = snippetInput.value.trim();
-      if (!text) {
+      const text = snippetInput.value;
+      if (!text.trim()) {
         if (typeof showToast === 'function') {
           showToast("Please paste some text into the box to inspect.", "error");
         }
@@ -48,12 +106,16 @@ document.addEventListener('DOMContentLoaded', () => {
       if (previewContainer) previewContainer.innerHTML = "";
       if (sandboxDiv) sandboxDiv.style.display = "none";
 
-      currentArrayBuffer = createDocxFromText(text);
-      inspectTemplate(currentArrayBuffer, "Pasted_Snippet.docx");
+      ++templateReadSerial;
+      inspectTemplate(createDocxFromText(text), "Pasted_Snippet.docx", 'snippet');
     });
   }
 
-  loadPrimaryFormFromIndex();
+  updateStudioActions();
+  document.getElementById('sandbox')?.addEventListener('input', event => {
+    if (event.target.matches('input, select, textarea')) event.target.dataset.studioEdited = 'true';
+  });
+  primaryFormReady = loadPrimaryFormFromIndex();
 
   if (sessionStorage.getItem('drafting_studio_auth') === 'true') {
     if (overlay) overlay.style.display = 'none';
@@ -97,6 +159,13 @@ document.addEventListener('DOMContentLoaded', () => {
     dropzone.addEventListener('click', () => {
       fileInput.value = '';
       fileInput.click();
+    });
+
+    dropzone.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        dropzone.click();
+      }
     });
 
     fileInput.addEventListener('change', (e) => {
@@ -151,6 +220,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function handleFile(file) {
   if (!file) return;
+  const serial = ++templateReadSerial;
+  studioInitialization.fields = false; updateStudioActions();
+  activeDocx = null; currentArrayBuffer = null; identifyTemplate();
+  document.getElementById('results').replaceChildren();
+  document.getElementById('sandbox').style.display = 'none';
 
   if (!file.name.toLowerCase().endsWith('.docx')) {
     if (typeof showToast === 'function') {
@@ -169,10 +243,12 @@ function handleFile(file) {
 
   const reader = new FileReader();
   reader.onload = function(e) {
-    currentArrayBuffer = e.target.result;
-    inspectTemplate(currentArrayBuffer, file.name);
+    if (serial !== templateReadSerial) return;
+    inspectTemplate(e.target.result, file.name);
   };
   reader.onerror = function() {
+    if (serial !== templateReadSerial) return;
+    activeDocx = null; currentArrayBuffer = null; identifyTemplate();
     if (typeof showToast === 'function') {
       showToast('Failed to read file from disk.', 'error');
     }
@@ -194,7 +270,8 @@ async function loadPrimaryFormFromIndex() {
     const htmlText = await res.text();
     const doc = new DOMParser().parseFromString(htmlText, 'text/html');
 
-    const primarySection = doc.querySelector('.primary-fields-section') || doc.body;
+    const primarySection = doc.querySelector('.primary-fields-section');
+    if (!primarySection) throw Error('Primary form is missing.');
     const clone = primarySection.cloneNode(true);
 
     clone.querySelectorAll('button, #docx-preview-container, .preview-section, [type="submit"], h2, #dynamic-fields-section, .header-row').forEach(el => el.remove());
@@ -202,402 +279,78 @@ async function loadPrimaryFormFromIndex() {
     container.innerHTML = "";
     container.appendChild(clone);
 
-    // Bind Sandbox Jurisdiction Change to Facility Dropdown
-    const sandboxJurisdiction = container.querySelector('#jurisdiction');
-    const sandboxFacility = container.querySelector('#detention_facility');
-    if (sandboxJurisdiction && sandboxFacility) {
-      DocxEngine.updateFacilityDropdown(sandboxFacility, sandboxJurisdiction.value);
-      sandboxJurisdiction.addEventListener('change', (e) => {
-        DocxEngine.updateFacilityDropdown(sandboxFacility, e.target.value);
-      });
+    const jurisdiction = container.querySelector('#jurisdiction'), facility = container.querySelector('#detention_facility');
+    if (!jurisdiction || !facility || Object.keys(STUDIO_PRIMARY_SAMPLES).some(id => !container.querySelector(`#${id}`))) throw Error('Primary form is incomplete.');
+    for (const [id, sample] of Object.entries(STUDIO_PRIMARY_SAMPLES)) {
+      if (id !== 'detention_facility') container.querySelector(`#${id}`).value = sample;
     }
+    DocxEngine.bindFacilityControls(jurisdiction, facility);
+    facility.value = STUDIO_PRIMARY_SAMPLES.detention_facility;
+    DocxEngine.updateOtherLocationVisibility(facility);
+    // A missing bundled template must not prevent testing independent uploads.
+    try { studioInitialization.bundled = await DocxEngine.loadTemplate(TEMPLATE_PATH); } catch { /* No bundled samples. */ }
+    studioInitialization.primary = true;
+    applyStudioDynamicSamples();
+    updateStudioActions();
   } catch (err) {
-    console.warn("Auto-sync fallback: Using default primary fields", err);
-    container.innerHTML = `
-      <div class="sandbox-grid">
-        <div class="field"><label>Jurisdiction</label><select id="jurisdiction"><option value="Massachusetts">Massachusetts</option><option value="New Hampshire">New Hampshire</option></select></div>
-        <div class="field"><label>Detention Facility</label><select id="detention_facility"><option value="Plymouth">Plymouth</option><option value="Burlington">Burlington</option></select></div>
-        <div class="field"><label>Petitioner Name</label><input type="text" id="Petitioner Name" value="Jane Marie Doe"></div>
-        <div class="field"><label>Case Number</label><input type="text" id="Case Number" value="2026-CV-04321"></div>
-      </div>
-    `;
+    container.replaceChildren();
+    studioInitialization.error = 'Studio form could not be initialized. Please refresh the page.';
+    studioInitialization.primary = false;
+    updateStudioActions();
+    const notice = document.createElement('p'); notice.className = 'error-card';
+    notice.id = 'studio-initialization-error'; notice.setAttribute('role', 'alert');
+    notice.textContent = studioInitialization.error;
+    document.getElementById('sandbox').before(notice);
+    GenerationUI.status(studioInitialization.error);
   }
 }
 
 // ============================================================================
 // 4. TEMPLATE LOGIC SCANNER & DYNAMIC FIELD DISCOVERY
 // ============================================================================
-function inspectTemplate(buffer, filename) {
-  const resultsDiv = document.getElementById('results');
-  const sandboxDiv = document.getElementById('sandbox');
-  const dynamicSection = document.getElementById('sandbox-dynamic-section');
-  const dynamicContainer = document.getElementById('sandbox-dynamic-container');
-
-  resultsDiv.innerHTML = "";
-  sandboxDiv.style.display = "none";
-  if (dynamicSection) dynamicSection.style.display = "none";
-
-  const previewContainer = document.getElementById('docx-preview-container');
-  if (previewContainer) previewContainer.innerHTML = "";
-
+function inspectTemplate(buffer, filename, source = 'docx') {
+  const results = document.getElementById('results'), sandbox = document.getElementById('sandbox');
+  const previous = sameStudioTemplate(lastInspectedBuffer, buffer)
+    ? new Map([...sandbox.querySelectorAll('[data-dynamic-tag]')].map(input => [input.getAttribute('data-dynamic-tag'), input.value])) : new Map();
+  results.replaceChildren(); sandbox.style.display = 'none';
+  studioInitialization.fields = false; updateStudioActions();
+  currentArrayBuffer = null;
+  if (source === 'docx') activeDocx = null;
+  identifyTemplate(source === 'snippet');
   try {
-    const zip = new PizZip(buffer);
-    let xmlContent = "";
-    
-    Object.keys(zip.files).forEach(name => {
-      if (name.startsWith("word/") && name.endsWith(".xml")) {
-        xmlContent += zip.files[name].asText() + "\n";
-      }
-    });
-
-    const cleanDocText = xmlContent
-      .replace(/<\/w:p>/g, '\n')
-      .replace(/\[[^\]]*?\]/g, m => m.replace(/<[^>]+>/g, ''))
-      .replace(/<[^>]+>/g, '')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&amp;/g, '&')
-      .replace(/&quot;/g, '"')
-      .replace(/&apos;/g, "'");
-
-    function getSnippet(fullText, index, tagLen) {
-      const start = Math.max(0, index - 50);
-      const end = Math.min(fullText.length, index + tagLen + 50);
-      let before = fullText.substring(start, index).replace(/\s+/g, ' ');
-      let tag = fullText.substring(index, index + tagLen);
-      let after = fullText.substring(index + tagLen, end).replace(/\s+/g, ' ');
-      
-      if (start > 0) before = "..." + before;
-      if (end < fullText.length) after = after + "...";
-      return { before, tag, after };
+    const model = DocxEngine.inspect(buffer);
+    const badge = document.createElement('div'); badge.className = 'badge-pass';
+    badge.textContent = `${filename}: template syntax checked. ${model.fields.length} ${model.fields.length === 1 ? 'field' : 'fields'} found. Generate a test document and review it in Microsoft Word before use.`;
+    results.append(badge);
+    renderDynamicFields(model.fields, document.getElementById('sandbox-dynamic-container'), document.getElementById('sandbox-dynamic-section'), true);
+    for (const input of sandbox.querySelectorAll('[data-dynamic-tag]')) {
+      const tag = input.getAttribute('data-dynamic-tag');
+      if (previous.has(tag)) { input.value = previous.get(tag); input.dataset.studioEdited = 'true'; }
     }
-
-    const errors = [];
-    const stack = [];
-    const tagRegex = /\[\s*(IF\s+[^\]]+|ELSE\s+IF\s+[^\]]+|ELSEIF\s+[^\]]+|ELSE|END\s+IF|[^\]]+)\s*\]/gi;
-    let match;
-
-    while ((match = tagRegex.exec(cleanDocText)) !== null) {
-      const rawTag = match[0];
-      const body = match[1].trim();
-      const matchIndex = match.index;
-      const snippet = getSnippet(cleanDocText, matchIndex, rawTag.length);
-
-      if (!isTagSyntaxValid(body)) {
-        errors.push({
-          title: "Unbalanced Quotation Marks",
-          tag: rawTag,
-          snippet: snippet,
-          fix: `In Word, search for this tag with <b>Ctrl+F</b> and ensure all quotes are paired. Example: <code>[IF Jurisdiction = "Massachusetts"]</code>.`
-        });
-      }
-
-      if (/^IF\s+/i.test(body)) {
-        const cond = body.replace(/^IF\s+/i, '').trim();
-        if (!cond) {
-          errors.push({
-            title: "Empty [IF] Tag",
-            tag: rawTag,
-            snippet: snippet,
-            fix: `Add a condition inside the bracket, such as <code>[IF Jurisdiction = "Massachusetts"]</code>.`
-          });
-        }
-        stack.push({ tag: rawTag, cond: cond, hasElse: false, snippet: snippet });
-      }
-      else if (/^(ELSE\s*IF|ELSEIF)\s*/i.test(body)) {
-        const cond = body.replace(/^(ELSE\s*IF|ELSEIF)\s*/i, '').trim();
-        if (stack.length === 0) {
-          errors.push({
-            title: "Orphan [ELSE IF] Tag",
-            tag: rawTag,
-            snippet: snippet,
-            fix: `This [ELSE IF] has no opening [IF] statement above it. Add an <code>[IF ...]</code> tag before this line or remove this tag.`
-          });
-        } else {
-          const top = stack[stack.length - 1];
-          if (top.hasElse) {
-            errors.push({
-              title: "Invalid Tag Order ([ELSE IF] after [ELSE])",
-              tag: rawTag,
-              snippet: snippet,
-              fix: `In your Word template, move this <code>${rawTag}</code> tag <b>ABOVE</b> the preceding <code>[ELSE]</code> tag. [ELSE] must always be the final branch before [END IF].`
-            });
-          }
-          if (!cond) {
-            errors.push({
-              title: "Empty [ELSE IF] Condition",
-              tag: rawTag,
-              snippet: snippet,
-              fix: `Add a condition to this [ELSE IF] tag, such as <code>[ELSE IF Jurisdiction = "Rhode Island"]</code>.`
-            });
-          }
-        }
-      }
-      else if (/^ELSE$/i.test(body)) {
-        if (stack.length === 0) {
-          errors.push({
-            title: "Orphan [ELSE] Tag",
-            tag: rawTag,
-            snippet: snippet,
-            fix: `Found an [ELSE] with no opening [IF] tag above it. Ensure it is placed between an <code>[IF ...]</code> and <code>[END IF]</code>.`
-          });
-        } else {
-          const top = stack[stack.length - 1];
-          if (top.hasElse) {
-            errors.push({
-              title: "Duplicate [ELSE] Statement",
-              tag: rawTag,
-              snippet: snippet,
-              fix: `There is already an [ELSE] in this block. An IF block can only have one default [ELSE]. Change this to <code>[ELSE IF ...]</code> or remove the extra [ELSE].`
-            });
-          }
-          top.hasElse = true;
-        }
-      }
-      else if (/^END\s+IF$/i.test(body)) {
-        if (stack.length === 0) {
-          errors.push({
-            title: "Orphan [END IF] Tag",
-            tag: rawTag,
-            snippet: snippet,
-            fix: `In Word, search for this <code>[END IF]</code> (Ctrl+F) and delete it, or add the missing <code>[IF ...]</code> tag above this paragraph.`
-          });
-        } else {
-          stack.pop();
-        }
-      }
-      else if (/^ELSE\s+/i.test(body)) {
-        errors.push({
-          title: "Malformed [ELSE] Tag with Condition",
-          tag: rawTag,
-          snippet: snippet,
-          fix: `<code>[ELSE]</code> cannot take a condition. If you want a specific condition, change it to <b><code>[ELSE IF ${body.replace(/^ELSE\s+/i, '')}]</code></b>. If it is the default fallback, simply write <b><code>[ELSE]</code></b>.`
-        });
-      }
-    }
-
-    while (stack.length > 0) {
-      const unclosed = stack.pop();
-      errors.push({
-        title: "Missing [END IF] (Unclosed Conditional Block)",
-        tag: unclosed.tag,
-        snippet: unclosed.snippet,
-        fix: `In Word, search for <code>${unclosed.tag}</code> and add a closing <b><code>[END IF]</code></b> tag on its own line below the conditional text.`
-      });
-    }
-
-    if (errors.length === 0) {
-      resultsDiv.innerHTML = `
-        <div class="badge-pass">
-          ✅ <b>Ready for Production:</b> "${filename}" passed all logic and tag validations with 0 errors!
-        </div>
-      `;
-
-      // Safely discover and inject dynamic custom fields
-      let discovered = [];
-      if (typeof DocxEngine !== 'undefined' && typeof DocxEngine.extractCustomFields === 'function') {
-        discovered = DocxEngine.extractCustomFields(xmlContent);
-      }
-
-      if (discovered.length > 0 && dynamicContainer && dynamicSection) {
-        dynamicContainer.innerHTML = "";
-        discovered.forEach(tag => {
-          const fieldWrapper = document.createElement('div');
-          fieldWrapper.className = 'field';
-
-          const label = document.createElement('label');
-          label.textContent = tag + ':';
-
-          const input = document.createElement('input');
-          input.type = 'text';
-          input.setAttribute('data-dynamic-tag', tag);
-
-          if (tag.toLowerCase().includes('date')) {
-            input.placeholder = "e.g., May 15, 2026 or on or about May 2024...";
-            input.value = "May 12, 2024";
-          } else {
-            input.placeholder = `Enter ${tag}...`;
-            input.value = tag.toLowerCase().includes('facility') 
-              ? 'Regional Detention Center' 
-              : (tag.toLowerCase().includes('citizenship') 
-                ? 'Guatemala' 
-                : (tag.toLowerCase().includes('location') ? 'Nogales, Arizona' : 'Sample Value'));
-          }
-
-          fieldWrapper.appendChild(label);
-          fieldWrapper.appendChild(input);
-          dynamicContainer.appendChild(fieldWrapper);
-        });
-        dynamicSection.style.display = "block";
-      }
-
-      sandboxDiv.style.display = "block";
-    } else {
-      let errHtml = `
-        <div class="error-summary-header">
-          <h3>❌ Found ${errors.length} Logic Error(s) in "${filename}":</h3>
-          <span class="error-summary-hint">Use <b>Ctrl + F</b> in Word to find the highlighted phrases below</span>
-        </div>
-      `;
-
-      errors.forEach((e, idx) => {
-        errHtml += `
-          <div class="error-card">
-            <div class="error-card-header">
-              <h4>⚠️ Error #${idx + 1}: ${e.title}</h4>
-              <code class="error-tag-badge">${escapeHtml(e.tag)}</code>
-            </div>
-            
-            <div class="snippet-box">
-              <span class="snippet-context">${escapeHtml(e.snippet.before)}</span>
-              <mark class="snippet-highlight">${escapeHtml(e.snippet.tag)}</mark>
-              <span class="snippet-context">${escapeHtml(e.snippet.after)}</span>
-            </div>
-
-            <div class="fix-box">
-              <strong>👉 How to fix in Word:</strong> ${e.fix}
-            </div>
-          </div>
-        `;
-      });
-
-      resultsDiv.innerHTML = errHtml;
-    }
-
-  } catch (err) {
-    resultsDiv.innerHTML = `
-      <div class="error-card">
-        <h4>File Read Error</h4>
-        <p>${escapeHtml(err.message)}</p>
-      </div>
-    `;
+    currentArrayBuffer = buffer; lastInspectedBuffer = buffer;
+    studioInitialization.fields = true;
+    applyStudioDynamicSamples();
+    updateStudioActions();
+    if (source === 'docx') activeDocx = { name: filename.split(/[\\/]/).pop(), fields: model.fields.length, buffer };
+    identifyTemplate(source === 'snippet');
+    sandbox.style.display = 'block';
+  } catch (e) {
+    const card = document.createElement('div'); card.className = 'error-card';
+    const title = document.createElement('h4'); title.textContent = 'Template error:';
+    const message = document.createElement('p'); message.textContent = e.message; card.append(title, message);
+    if (e.context) { const snippet = document.createElement('div'); snippet.className = 'snippet-box'; snippet.textContent = e.context; card.append(snippet); }
+    const fix = document.createElement('p'); fix.textContent = 'If the error identifies a field or instruction, locate it in Word, correct it, and inspect again.'; card.append(fix); results.append(card);
   }
-}
-
-function escapeHtml(text) {
-  if (!text) return "";
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }
 
 // ============================================================================
 // 5. LIVE TEST SANDBOX RENDERER (Delegates compilation to DocxEngine)
 // ============================================================================
-async function runTestRender(shouldDownload) {
-  if (!currentArrayBuffer) {
-    if (typeof showToast === 'function') {
-      showToast("No document or snippet loaded to render.", "error");
-    }
-    return;
-  }
-  
-  const testData = {};
-  const container = document.getElementById('sandbox-form-container');
-
-  function setFieldVariations(baseKey, val) {
-    if (!baseKey) return;
-    testData[baseKey] = val;
-    const spaced = baseKey.replace(/[-_]/g, ' ').trim();
-    testData[spaced] = val;
-  }
-
-  // 1. Gather Pinned Primary Data
-  let fullName = "Draft";
-  if (container) {
-    container.querySelectorAll('input, select, textarea').forEach(el => {
-      if (el.type === 'radio' && !el.checked) return;
-
-      const val = (el.type === 'checkbox') ? el.checked : el.value;
-      
-      if (el.id) setFieldVariations(el.id, val);
-      if (el.name) setFieldVariations(el.name, val);
-      if (el.getAttribute('data-tag')) setFieldVariations(el.getAttribute('data-tag'), val);
-
-      const label = el.closest('.field')?.querySelector('label') || el.previousElementSibling;
-      if (label && label.tagName === 'LABEL') {
-        const labelText = label.innerText.replace(/[*:]/g, '').trim();
-        setFieldVariations(labelText, val);
-      }
-    });
-
-    const first = testData['first name'] || testData['petitioner_first_name'] || testData['petitioner first name'] || '';
-    const middle = testData['middle name'] || testData['petitioner_middle_name'] || testData['petitioner middle name'] || '';
-    const last = testData['last name'] || testData['petitioner_last_name'] || testData['petitioner last name'] || '';
-    const rawSuffix = testData['suffix'] || testData['petitioner_suffix'] || testData['petitioner suffix'] || '';
-
-    const cleanSuffix = rawSuffix.replace(/^[,\s]+/, '').trim();
-    const baseName = [first, middle, last].filter(Boolean).join(' ');
-    fullName = cleanSuffix 
-      ? (baseName ? `${baseName}, ${cleanSuffix}` : cleanSuffix)
-      : (baseName || "Draft");
-
-    if (first || last) {
-      setFieldVariations('Petitioner Name', fullName);
-      setFieldVariations('Petitioner First Name', first);
-      setFieldVariations('Petitioner Middle Name', middle);
-      setFieldVariations('Petitioner Last Name', last);
-      setFieldVariations('Petitioner Suffix', cleanSuffix);
-      setFieldVariations('Plaintiff Name', fullName);
-    }
-
-    const pronounChoice = testData['petitioner_pronouns'] || testData['petitioner pronouns'] || testData['pronouns'] || 'male';
-    const pronounData = DocxEngine.getPronounData(pronounChoice);
-    Object.assign(testData, pronounData);
-
-    const facility = testData['detention_facility'] || testData['detention facility'] || testData['facility'] || '';
-    if (facility) {
-      setFieldVariations('Detention Facility', facility);
-      setFieldVariations('Facility', facility);
-    }
-
-    const def = testData['defendant'] || testData['defendant name'] || testData['respondent name'];
-    if (def) {
-      setFieldVariations('Defendant Name', def);
-      setFieldVariations('Respondent Name', def);
-    }
-
-    const cNum = testData['case_number'] || testData['case number'] || testData['docket number'];
-    if (cNum) {
-      setFieldVariations('Case Number', cNum);
-      setFieldVariations('Docket Number', cNum);
-    }
-  }
-
-  // 2. Gather Discovered Dynamic Fields
-  document.querySelectorAll('#sandbox-dynamic-container input[data-dynamic-tag]').forEach(input => {
-    const tag = input.getAttribute('data-dynamic-tag');
-    const val = input.value.trim();
-    setFieldVariations(tag, val);
-  });
-
-  // 3. Delegate directly to DocxEngine (replaces the ~100 duplicate lines)
-  await DocxEngine.generate({
-    buffer: currentArrayBuffer,
-    data: testData,
-    outputFilename: `Habeas Petition ${fullName}.docx`,
-    selectElementForAliases: true,
-    download: shouldDownload,
-    previewContainerId: 'docx-preview-container'
-  });
-}
-
-function isTagSyntaxValid(tagText) {
-  if (!tagText) return true;
-  
-  const upperText = tagText.toUpperCase().trim();
-  const logicalKeywords = ["IF ", "ELSE", "FOR ", "EACH", "ENDIF", "="];
-  const isLogicalStatement = logicalKeywords.some(keyword => upperText.indexOf(keyword) !== -1);
-  
-  if (!isLogicalStatement) return true;
-  
-  const normalizedText = tagText.replace(/[“”]/g, '"');
-  const doubleQuoteCount = (normalizedText.match(/"/g) || []).length;
-  
-  return doubleQuoteCount % 2 === 0;
+async function runTestRender(download) {
+  if (!currentArrayBuffer) { showToast('Upload a document or inspect a snippet first.', 'error'); return; }
+  try { requireStudioReady(); }
+  catch (e) { showToast(e.message, 'error'); return; }
+  return GenerationUI.run(download, { buffer: currentArrayBuffer, collect: getFormData });
 }
 
 /**
@@ -609,7 +362,7 @@ function createDocxFromText(rawText) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .split('\n')
+    .split(/\r\n|\r|\n/)
     .map(line => `<w:p><w:r><w:t xml:space="preserve">${line}</w:t></w:r></w:p>`)
     .join('');
 

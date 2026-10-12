@@ -1,186 +1,75 @@
-/**
- * Habeas Petition Generator Application Logic
- */
-
+/** Form collection shared with the Studio; original values remain unchanged. */
 const TEMPLATE_PATH = 'templates/petition.docx';
-
-/**
- * Formats a raw bracket tag (e.g., 'date_of_entry' or 'iceFieldOffice') into a readable UI label.
- */
-function formatTagToLabel(tag) {
-  if (!tag) return "";
-  return tag
-    .replace(/[-_]/g, ' ')
-    .replace(/([a-z])([A-Z])/g, '$1 $2')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/\b\w/g, c => c.toUpperCase());
-}
-
-/**
- * Automatically loads the default template and renders discovered dynamic fields
- */
-async function initializeDynamicFields() {
-  const section = document.getElementById('dynamic-fields-section');
-  const container = document.getElementById('dynamic-fields-container');
-  if (!section || !container) return;
-
-  try {
-    const buffer = await DocxEngine.loadTemplate(TEMPLATE_PATH);
-    const discovered = DocxEngine.extractCustomFields(buffer);
-
-    if (discovered.length === 0) {
-      section.style.display = 'none';
-      container.innerHTML = '';
-      return;
-    }
-
-    container.innerHTML = '';
-    discovered.forEach(tag => {
-      const fieldWrapper = document.createElement('div');
-      fieldWrapper.className = 'field';
-
-      const label = document.createElement('label');
-      label.textContent = `${formatTagToLabel(tag)}:`;
-
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.setAttribute('data-dynamic-tag', tag);
-
-      if (tag.toLowerCase().includes('date')) {
-        input.placeholder = "e.g., May 15, 2026 or on or about May 2024...";
-      } else {
-        input.placeholder = `Enter ${formatTagToLabel(tag)}...`;
-      }
-
-      fieldWrapper.appendChild(label);
-      fieldWrapper.appendChild(input);
-      container.appendChild(fieldWrapper);
-    });
-
-    section.style.display = 'block';
-  } catch (err) {
-    console.warn("Could not auto-discover dynamic fields for default template:", err.message);
+const pleadingInitialization = { ready: false, error: '' };
+function requirePleadingReady() {
+  if (document.getElementById('dynamic-fields-container') && !pleadingInitialization.ready) {
+    throw Error(pleadingInitialization.error || 'Template fields are still loading. Please wait.');
   }
 }
-
-/**
- * Collects form values into structured template data (Primary + Dynamic)
- */
+const PRIMARY_FIELDS = ['Jurisdiction', 'Detention Facility', 'Facility', 'Type of Habeas Petition', 'Petition Type', 'Type of Habeas Petition Full', 'Petitioner Name', 'Petitioner First Name', 'Petitioner Middle Name', 'Petitioner Last Name', 'Petitioner Suffix', 'Plaintiff Name', 'Defendant Name', 'Respondent Name', 'Case Number', 'Docket Number'];
 function getFormData() {
-  const petitionSelect = document.getElementById('petition_type');
-  const petitionVal = petitionSelect ? petitionSelect.value : '';
-  const petitionFullText = petitionSelect && petitionSelect.selectedIndex >= 0
-    ? petitionSelect.options[petitionSelect.selectedIndex].text
-    : '';
-
-  const firstName = document.getElementById('petitioner_first_name')?.value.trim() || '';
-  const middleName = document.getElementById('petitioner_middle_name')?.value.trim() || '';
-  const lastName = document.getElementById('petitioner_last_name')?.value.trim() || '';
-  const rawSuffix = document.getElementById('petitioner_suffix')?.value.trim() || '';
-
-  const cleanSuffix = rawSuffix.replace(/^[,\s]+/, '').trim();
-  const baseName = [firstName, middleName, lastName].filter(Boolean).join(' ');
-  const fullName = cleanSuffix 
-    ? (baseName ? `${baseName}, ${cleanSuffix}` : cleanSuffix)
-    : (baseName || "Draft");
-
-  const selectedPronoun = document.querySelector('input[name="petitioner_pronouns"]:checked')?.value || 'male';
-  const pronounData = DocxEngine.getPronounData(selectedPronoun);
-
-  const facilityVal = document.getElementById('detention_facility')?.value || '';
-
-  const baseFormData = {
-    "Jurisdiction": document.getElementById('jurisdiction')?.value || '',
-    "Detention Facility": facilityVal,
-    "Facility": facilityVal,
-    "Type of Habeas Petition": petitionVal,
-    "Petition Type": petitionVal,
-    "Type of Habeas Petition Full": petitionFullText,
-
-    "Petitioner Name": fullName,
-    "Petitioner First Name": firstName,
-    "Petitioner Middle Name": middleName,
-    "Petitioner Last Name": lastName,
-    "Petitioner Suffix": cleanSuffix,
-    "Plaintiff Name": fullName,
-
-    "Defendant Name": document.getElementById('defendant')?.value || '',
-    "Respondent Name": document.getElementById('defendant')?.value || '',
-    "Case Number": document.getElementById('case_number')?.value || ''
-  };
-
-  const dynamicData = {};
-  document.querySelectorAll('input[data-dynamic-tag]').forEach(input => {
-    const tag = input.getAttribute('data-dynamic-tag');
-    dynamicData[tag] = input.value.trim();
+  requirePleadingReady();
+  if (typeof requireStudioReady === 'function') requireStudioReady();
+  const value = id => document.getElementById(id)?.value ?? '';
+  const first = value('petitioner_first_name'), middle = value('petitioner_middle_name'), last = value('petitioner_last_name'), suffix = value('petitioner_suffix');
+  // Only the derived full name trims parts and normalizes its suffix separator.
+  const base = [first, middle, last].map(s => s.trim()).filter(Boolean).join(' ');
+  const cleanSuffix = suffix.replace(/^[,\s]+/, '').trim();
+  const fullName = [base, cleanSuffix].filter(Boolean).join(base && cleanSuffix ? ', ' : '');
+  const petition = document.getElementById('petition_type');
+  const detention = value('detention_facility') === '__other__' ? value('other_detention_location') : value('detention_facility');
+  const formData = Object.create(null);
+  Object.assign(formData, {
+    Jurisdiction: value('jurisdiction'), 'Detention Facility': detention, Facility: detention,
+    'Type of Habeas Petition': value('petition_type'), 'Petition Type': value('petition_type'),
+    'Type of Habeas Petition Full': petition?.value ? petition.selectedOptions[0]?.textContent ?? '' : '',
+    'Petitioner Name': fullName, 'Plaintiff Name': fullName,
+    'Petitioner First Name': first, 'Petitioner Middle Name': middle, 'Petitioner Last Name': last, 'Petitioner Suffix': suffix,
+    'Defendant Name': value('defendant'), 'Respondent Name': value('defendant'), 'Case Number': value('case_number'), 'Docket Number': value('case_number')
   });
-
-  const formData = Object.assign({}, baseFormData, pronounData, dynamicData);
+  for (const input of document.querySelectorAll('input[data-dynamic-tag]')) {
+    const tag = input.getAttribute('data-dynamic-tag');
+    const existing = Object.keys(formData).find(k => TemplateLogic.key(k) === TemplateLogic.key(tag));
+    if (existing && formData[existing] !== input.value) throw Error(`Conflicting values for <${tag}>.`);
+    formData[tag] = input.value;
+  }
+  TemplateLogic.values(formData);
   return { formData, fullName };
 }
-
-/**
- * Handles action execution for preview or download with user feedback
- */
-async function runPleadingAction(shouldDownload) {
-  const renderBtn = document.getElementById('renderBtn');
-  const downloadBtn = document.getElementById('downloadBtn');
-  const activeBtn = shouldDownload ? downloadBtn : renderBtn;
-  const originalText = activeBtn ? activeBtn.innerHTML : '';
-
+function renderDynamicFields(fields, container, section, sample = false) {
+  const primary = new Set(PRIMARY_FIELDS.map(TemplateLogic.key));
+  container.replaceChildren();
+  for (const tag of fields.filter(f => !primary.has(TemplateLogic.key(f)))) {
+    const wrapper = document.createElement('div'), label = document.createElement('label'), input = document.createElement('input');
+    wrapper.className = 'field'; input.type = 'text'; input.setAttribute('data-dynamic-tag', tag);
+    input.id = `dynamic-field-${container.children.length}`; label.htmlFor = input.id; label.textContent = `${tag}:`;
+    input.placeholder = `Enter ${tag}…`; if (sample) input.value = '';
+    wrapper.append(label, input); container.append(wrapper);
+  }
+  section.style.display = container.children.length ? 'block' : 'none';
+}
+async function initializeDynamicFields() {
   try {
-    if (activeBtn) {
-      activeBtn.disabled = true;
-      activeBtn.innerHTML = shouldDownload ? 'Compiling DOCX... ⏳' : 'Generating Preview... ⏳';
-    }
-
-    const { formData, fullName } = getFormData();
-
-    await DocxEngine.generate({
-      templatePath: TEMPLATE_PATH,
-      data: formData,
-      outputFilename: `Habeas Petition ${fullName}.docx`,
-      selectElementForAliases: true,
-      download: shouldDownload,
-      previewContainerId: 'docx-preview-container'
-    });
-
-    if (shouldDownload && typeof showToast === 'function') {
-      showToast(`Downloaded Habeas Petition ${fullName}.docx`, 'success');
-    }
-  } catch (err) {
-    if (typeof showToast === 'function') {
-      showToast(`Error: ${err.message}`, 'error');
-    } else {
-      alert(`Error: ${err.message}`);
-    }
-    console.error(err);
-  } finally {
-    if (activeBtn) {
-      activeBtn.disabled = false;
-      activeBtn.innerHTML = originalText;
-    }
+    const fields = DocxEngine.extractCustomFields(await DocxEngine.loadTemplate(TEMPLATE_PATH));
+    renderDynamicFields(fields, document.getElementById('dynamic-fields-container'), document.getElementById('dynamic-fields-section'));
+    pleadingInitialization.ready = true;
+    document.querySelectorAll('.action-block button').forEach(button => { button.disabled = false; });
+    GenerationUI.status('Template fields ready.');
+  } catch (e) {
+    pleadingInitialization.error = `Template fields could not be initialized: ${e.message}. Please refresh the page.`;
+    GenerationUI.status(pleadingInitialization.error);
   }
 }
-
-// Bind Action Buttons and Jurisdiction Change
+async function runPleadingAction(download) {
+  try { requirePleadingReady(); }
+  catch (e) { showToast(e.message, 'error'); return null; }
+  return GenerationUI.run(download, { templatePath: TEMPLATE_PATH, collect: getFormData });
+}
 document.addEventListener('DOMContentLoaded', () => {
+  if (!document.getElementById('dynamic-fields-container')) return; // Studio binds its own controls.
   initializeDynamicFields();
-
-  const jurisdictionSelect = document.getElementById('jurisdiction');
-  const facilitySelect = document.getElementById('detention_facility');
-
-  if (jurisdictionSelect && facilitySelect) {
-    DocxEngine.updateFacilityDropdown(facilitySelect, jurisdictionSelect.value);
-    jurisdictionSelect.addEventListener('change', (e) => {
-      DocxEngine.updateFacilityDropdown(facilitySelect, e.target.value);
-    });
-  }
-
-  const renderBtn = document.getElementById('renderBtn');
-  const downloadBtn = document.getElementById('downloadBtn');
-
-  if (renderBtn) renderBtn.addEventListener('click', () => runPleadingAction(false));
-  if (downloadBtn) downloadBtn.addEventListener('click', () => runPleadingAction(true));
+  const jurisdiction = document.getElementById('jurisdiction'), facility = document.getElementById('detention_facility');
+  DocxEngine.bindFacilityControls(jurisdiction, facility);
+  document.getElementById('renderBtn').addEventListener('click', () => runPleadingAction(false));
+  document.getElementById('downloadBtn').addEventListener('click', () => runPleadingAction(true));
 });

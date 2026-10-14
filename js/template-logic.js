@@ -84,12 +84,12 @@ const TemplateLogic = (() => {
     const result = or(); if (pos !== tokens.length) throw Error('Unexpected text after condition.');
     return result;
   }
-  function evaluate(node, data) {
-    if (node.kind === 'NOT') { const r = evaluate(node.child, data); return { ...r, value: r.value === null ? null : !r.value }; }
+  function evaluate(node, data, detentionFacility = null) {
+    if (node.kind === 'NOT') { const r = evaluate(node.child, data, detentionFacility); return { ...r, value: r.value === null ? null : !r.value }; }
     if (node.kind === 'AND' || node.kind === 'OR') {
-      const a = evaluate(node.left, data), decisive = node.kind === 'AND' ? false : true;
+      const a = evaluate(node.left, data, detentionFacility), decisive = node.kind === 'AND' ? false : true;
       if (a.value === decisive) return { value: decisive, reasons: [] };
-      const b = evaluate(node.right, data);
+      const b = evaluate(node.right, data, detentionFacility);
       if (b.value === decisive) return { value: decisive, reasons: [] };
       return { value: a.value === null || b.value === null ? null : !decisive, reasons: [...a.reasons, ...b.reasons] };
     }
@@ -105,7 +105,15 @@ const TemplateLogic = (() => {
     const a = get(node.a), b = get(node.b);
     if (a === null || b === null) return { value: null, reasons };
     const norm = v => String(v).trim().toLowerCase();
-    const cmp = node.numeric ? numberCompare(a, b) : norm(a) === norm(b) ? 0 : norm(a) < norm(b) ? -1 : 1;
+    // Only listed detention-field comparisons with quoted text accept both names.
+    // Other fields, field-to-field comparisons, numbers and custom entries stay ordinary.
+    const facilityOperand = operand => operand.field && key(operand.field) === 'detention facility';
+    const matchingName = (field, literal) => facilityOperand(field) && literal.text !== undefined &&
+      detentionFacility && data.get('detention facility') === detentionFacility.value &&
+      [detentionFacility.value, detentionFacility.fullName].some(name => norm(name) === norm(literal.text));
+    const facilityMatch = !node.numeric && ['=', '!='].includes(node.op) &&
+      (matchingName(node.a, node.b) || matchingName(node.b, node.a));
+    const cmp = facilityMatch ? 0 : node.numeric ? numberCompare(a, b) : norm(a) === norm(b) ? 0 : norm(a) < norm(b) ? -1 : 1;
     return { value: ({ '=': cmp === 0, '!=': cmp !== 0, '<': cmp < 0, '>': cmp > 0, '<=': cmp <= 0, '>=': cmp >= 0 })[node.op], reasons: [] };
   }
   function parse(text, location = 'Text') {
@@ -185,13 +193,15 @@ const TemplateLogic = (() => {
     }
     return { text, nodes: sequence(), fields: [...fields.values()], tokens, location };
   }
-  function plan(parsed, data) {
+  function plan(parsed, data, detentionFacility = null) {
     const edits = [], missing = new Map(), unresolved = [];
     const replace = (start, end, replacement = '', type = 'text') => edits.push({ start, end, replacement, type });
     function ordinary(n) {
       if (n.kind === 'escape') replace(n.start, n.end, n.replacement);
       if (n.kind === 'field') {
-        const value = data.get(key(n.name));
+        const original = data.get(key(n.name));
+        const value = key(n.name) === 'detention facility' && detentionFacility && original === detentionFacility.value
+          ? detentionFacility.fullName : original;
         if (blank(value)) missing.set(key(n.name), n.name);
         else {
           const text = String(value);
@@ -215,7 +225,7 @@ const TemplateLogic = (() => {
         let selected = -1, unknown = null;
         for (let b = 0; b < n.branches.length; b++) {
           const tag = n.branches[b].tag;
-          const r = tag.kind === 'else' ? { value: true } : evaluate(tag.condition, data);
+          const r = tag.kind === 'else' ? { value: true } : evaluate(tag.condition, data, detentionFacility);
           if (r.value === null) { unknown = { instruction: tag.raw, location: tag.location, reasons: r.reasons, unevaluated: [] }; break; }
           if (r.value) { selected = b; break; }
         }

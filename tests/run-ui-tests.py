@@ -238,11 +238,11 @@ def main():
   origin=f'http://127.0.0.1:{server.server_port}'
   for method in ('Runtime.enable','Log.enable','Network.enable'):call(method,{})
   call('Fetch.enable',{'patterns':[{'urlPattern':'https://cdn.jsdelivr.net/*'}]})
-  stage='34 JavaScript UI checks'
+  stage='36 JavaScript UI checks'
   call('Page.navigate',{'url':origin+'/ui-tests.html'})
   raw=until("document.getElementById('test-output')?.textContent!=='pending' && document.getElementById('test-output')?.textContent")
   report.update(json.loads(raw));save_report();snapshot()
-  check(len(report.get('results',[]))==34,'Expected all 34 JavaScript UI checks to finish')
+  check(len(report.get('results',[]))==36,'Expected all 36 JavaScript UI checks to finish')
   # Trusted keyboard events operate native select controls on the actual served pages.
   def keypress(key,code):
    for kind in ['keyDown','keyUp']:call('Input.dispatchKeyEvent',{'type':kind,'key':key,'code':key,'windowsVirtualKeyCode':code})
@@ -294,7 +294,7 @@ def main():
      snapshot()
     save_report()
   check(not server_errors,'Local server failed: '+str(server_errors))
-  check(len(report.get('results',[]))==46,'Expected all 46 UI checks to finish')
+  check(len(report.get('results',[]))==48,'Expected all 48 UI checks to finish')
  except Exception as error:
   report['fatal']=str(error)
   report['traceback']=traceback.format_exc()

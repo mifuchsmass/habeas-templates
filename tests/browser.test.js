@@ -108,6 +108,66 @@
     const missing = DocxEngine.compile(input, { Jurisdiction: 'Massachusetts', 'Type of Habeas Petition': 'Non-GO' }); assert(getText(missing).includes('<Petitioner Name>')); assert(!getText(missing).includes('Draft')); save('11-sample-missing-fields', missing);
   });
 
+  await test('sample heading keeps Word All Caps and both detention paragraphs substitute', () => {
+    const input = Uint8Array.from(atob(template64), c => c.charCodeAt(0));
+    for (const [state, facility, artifact] of [
+      ['Massachusetts', 'Plymouth', '16-heading-massachusetts-listed'],
+      ['New Hampshire', 'Synthetic ICE office, Test City', '17-heading-new-hampshire-custom']
+    ]) {
+      const out = DocxEngine.compile(input, { Jurisdiction: state, 'Detention Facility': facility, 'Type of Habeas Petition': 'Non-GO' });
+      const doc = DocxEngine.xml(out.zip.file('word/document.xml').asText(), 'sample');
+      const paragraphs = DocxEngine.descendants(doc, 'p'), heading = paragraphs[0];
+      equal(DocxEngine.visible(heading), 'IN THE UNITED STATES DISTRICT COURT FOR THE DISTRICT OF ' + state);
+      equal(heading.getElementsByTagNameNS(ns, 'jc')[0].getAttributeNS(ns, 'val'), 'center');
+      for (const run of DocxEngine.descendants(heading, 'r').filter(r => DocxEngine.visible(r))) {
+        assert(run.getElementsByTagNameNS(ns, 'b').length, 'heading run must remain bold');
+        assert(run.getElementsByTagNameNS(ns, 'caps').length, 'heading run must retain Word All Caps');
+      }
+      assert(DocxEngine.visible(paragraphs[27]).includes('warden in the ' + facility + ' in ' + state));
+      assert(paragraphs.some(p => DocxEngine.visible(p).includes('physical custody of Respondents at the ' + facility + '.')));
+      save(artifact, out);
+    }
+  });
+
+  await test('all seven listed facilities substitute fully and accept short/full conditions in supported stories', () => {
+    const facilities = Object.values(DocxEngine.STATE_FACILITIES).flat(); equal(facilities.length, 7);
+    for (const facility of facilities) {
+      const data = { 'Detention Facility': facility.value, Other: facility.fullName, Flag: 'yes' };
+      for (const name of [facility.value, facility.fullName, '  ' + facility.fullName.toUpperCase() + '  ']) {
+        for (const [op, result] of [['=', 'YES'], ['!=', 'NO']]) {
+          const source = '{IF <detention facility> ' + op + ' "' + name + '"}YES{ELSE}NO{END IF}';
+          equal(getText(DocxEngine.compile(fixture(p(source)), data, facility)), result);
+        }
+      }
+      const different = facilities.find(f => f.value !== facility.value);
+      for (const name of [different.value, different.fullName]) {
+        equal(getText(DocxEngine.compile(fixture(p('{IF <Detention Facility> = "' + name + '"}BAD{ELSE}GOOD{END IF}')), data, facility)), 'GOOD');
+        equal(getText(DocxEngine.compile(fixture(p('{IF <Detention Facility> != "' + name + '"}GOOD{ELSE}BAD{END IF}')), data, facility)), 'GOOD');
+      }
+      const body = p('Literal ' + facility.value + ': <Detention Facility>') + table(row('<Detention Facility>', 'Cell')) + p('{IF <Unknown> = "yes"}') + p('<Detention Facility>') + p('{ELSE}') + p('Alternative <Detention Facility>') + p('{END IF}') + `<w:p>${ref}</w:p>`;
+      const notes = foot(p('<Detention Facility> {IF <Detention Facility> = "' + facility.fullName + '"}MATCH{END IF}'));
+      const out = DocxEngine.compile(fixture(body, notes), data, facility);
+      assert(getText(out).includes('Literal ' + facility.value + ': ' + facility.fullName));
+      const xml = DocxEngine.xml(out.zip.file('word/document.xml').asText(), 'body');
+      assert(DocxEngine.visible(DocxEngine.descendants(xml, 'tc')[0]).includes(facility.fullName));
+      assert(getText(out).includes('Alternative ' + facility.fullName)); equal(out.warnings.unresolved.length, 1);
+      assert(getText(out, 'word/footnotes.xml').includes(facility.fullName + ' MATCH'));
+      // Ordinary fields and field-to-field comparisons receive no facility equivalence.
+      equal(getText(DocxEngine.compile(fixture(p('{IF <Other> = "' + facility.value + '"}BAD{ELSE}GOOD{END IF}')), data, facility)), 'GOOD');
+      equal(getText(DocxEngine.compile(fixture(p('{IF <Other> = <Detention Facility>}BAD{ELSE}GOOD{END IF}')), data, facility)), 'GOOD');
+      equal(getText(DocxEngine.compile(fixture(p('{IF "' + facility.fullName + '" = <Detention Facility> AND NOT (<Flag> != "yes")}GOOD{ELSE}BAD{END IF}')), data, facility)), 'GOOD');
+    }
+  });
+  await test('custom text and absent or mismatched selection metadata never infer listed identity', () => {
+    const facility = DocxEngine.STATE_FACILITIES.Massachusetts[0];
+    const source = '<Detention Facility>|{IF <Detention Facility> = "Plymouth County Correctional Facility"}YES{ELSE}NO{END IF}';
+    equal(getText(DocxEngine.compile(fixture(p(source)), { 'Detention Facility': 'Plymouth' })), 'Plymouth|NO');
+    equal(getText(DocxEngine.compile(fixture(p(source)), { 'Detention Facility': 'Plymouth County Correctional Facility' })), 'Plymouth County Correctional Facility|YES');
+    equal(getText(DocxEngine.compile(fixture(p(source)), { 'Detention Facility': 'Boston' }, facility)), 'Boston|NO');
+    const blank = DocxEngine.compile(fixture(p(source)), { 'Detention Facility': '' });
+    assert(getText(blank).startsWith('<Detention Facility>|{IF')); equal(blank.warnings.missing, ['Detention Facility']); equal(blank.warnings.unresolved.length, 1);
+  });
+
   await test('case, overlap and meaningful field separators in real DOCX', () => {
     const out = DocxEngine.compile(fixture(p('< Facility >|<FACILITY>|<Detention Facility>|<Date of Entry>|<Date_of_Entry>|<Date-of-Entry>')), { facility: ' F ', 'Detention Facility': 'D', 'Date of Entry': 'S', Date_of_Entry: 'U', 'Date-of-Entry': 'H' });
     equal(getText(out), ' F | F |D|S|U|H');
@@ -242,6 +302,55 @@
     const dynamic = document.createElement('input'); dynamic.setAttribute('data-dynamic-tag', 'petitioner_first_name'); dynamic.value = 'Separate underscore field'; controls.append(dynamic);
     const saved = FormStorage.snapshot(); equal(saved.values['Petitioner First Name'], 'Primary'); equal(saved.values.petitioner_first_name, 'Separate underscore field');
     primary.value = dynamic.value = ''; FormStorage.restore(saved); equal(primary.value, 'Primary'); equal(dynamic.value, 'Separate underscore field'); dynamic.remove(); primary.value = '';
+  });
+
+  await test('Facility is independently discovered, saved and substituted without a detention alias', () => {
+    const container = document.createElement('div'), section = document.createElement('div');
+    controls.append(container);
+    const facility = document.getElementById('detention_facility');
+    const previous = facility.value;
+    try {
+      facility.setAttribute('data-form-field', 'Detention Facility');
+      DocxEngine.updateFacilityDropdown(facility, 'Massachusetts'); facility.value = 'Plymouth';
+      assert(!Object.hasOwn(getFormData().formData, 'Facility'));
+      renderDynamicFields(['Facility', 'Detention Facility'], container, section);
+      equal(container.querySelectorAll('input').length, 1);
+      const input = container.querySelector('input'); equal(input.dataset.dynamicTag, 'Facility');
+      input.value = 'Independent facility';
+      const data = getFormData().formData;
+      equal(data.Facility, 'Independent facility'); equal(data['Detention Facility'], 'Plymouth');
+      equal(getText(DocxEngine.compile(fixture(p('<Facility>|<Detention Facility>')), data)), 'Independent facility|Plymouth');
+      const saved = FormStorage.snapshot(); equal(saved.values.Facility, 'Independent facility'); equal(saved.values['Detention Facility'], 'Plymouth');
+      input.value = ''; facility.value = 'Boston'; FormStorage.restore(saved);
+      equal(input.value, 'Independent facility'); equal(facility.value, 'Plymouth');
+    } finally { container.remove(); facility.removeAttribute('data-form-field'); facility.value = previous; }
+  });
+
+  await test('fresh Massachusetts, New Hampshire and custom acceptance petitions use selected identities', () => {
+    const input = Uint8Array.from(atob(template64), c => c.charCodeAt(0));
+    const jurisdiction = document.getElementById('jurisdiction'), facility = document.getElementById('detention_facility');
+    const custom = document.createElement('input'); custom.id = 'other_detention_location'; controls.append(custom);
+    const saved = FormStorage.snapshot();
+    try {
+      for (const [state, selected, text, name] of [
+        ['Massachusetts', 'Plymouth', '', 'acceptance-massachusetts-plymouth-oct14'],
+        ['New Hampshire', 'Berlin', '', 'acceptance-new-hampshire-berlin-oct14'],
+        ['Massachusetts', '__other__', '  Custom ICE Office — Test City  ', 'acceptance-custom-other-oct14']
+      ]) {
+        jurisdiction.value = state; DocxEngine.updateFacilityDropdown(facility, state); facility.value = selected; custom.value = text;
+        const collected = getFormData();
+        Object.assign(collected.formData, { 'Petitioner Name': 'Alex Morgan', 'Defendant Name': 'Test Respondent', 'Case Number': 'TEST-OCT14', 'Country of Citizenship': 'Fictional Country', 'Continuous Residence Date': 'January 1, 2020', 'Date of Entry': 'January 1, 2020', 'Entry Location': 'Fictional Entry Location', 'Date of Arrest': 'October 1, 2026', 'Type of Habeas Petition': 'Non-GO' });
+        const result = DocxEngine.compile(input, collected.formData, collected.detentionFacility);
+        const fullName = collected.detentionFacility?.fullName ?? text;
+        const doc = DocxEngine.xml(result.zip.file('word/document.xml').asText(), name), paragraphs = DocxEngine.descendants(doc, 'p');
+        equal(DocxEngine.visible(paragraphs[0]), 'IN THE UNITED STATES DISTRICT COURT FOR THE DISTRICT OF ' + state);
+        equal(paragraphs[0].getElementsByTagNameNS(ns, 'jc')[0].getAttributeNS(ns, 'val'), 'center');
+        for (const r of DocxEngine.descendants(paragraphs[0], 'r').filter(r => DocxEngine.visible(r))) { assert(r.getElementsByTagNameNS(ns, 'caps').length); assert(r.getElementsByTagNameNS(ns, 'b').length); }
+        assert(DocxEngine.visible(paragraphs[27]).includes('warden in the ' + fullName + ' in ' + state));
+        assert(paragraphs.some(p => DocxEngine.visible(p).includes('Respondents at the ' + fullName + '.')));
+        equal(result.warnings.missing, []); equal(result.warnings.unresolved, []); save(name, result);
+      }
+    } finally { custom.remove(); FormStorage.restore(saved); }
   });
 
   await test('independent Download and warnings reset, Save/Load leave warning status alone', async () => {

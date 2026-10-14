@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Habeas Petition Generator — Word Template Authoring Guide</title><style>body{margin:0;background:#f8fafc;color:#1e293b;font:17px/1.65 system-ui,sans-serif}main{max-width:960px;margin:32px auto;padding:40px;background:white;border:1px solid #e2e8f0;border-radius:12px}h1{font-size:1.8rem;line-height:1.3;color:#1e3a5f}h2{margin-top:2rem;color:#1e3a5f;font-size:1.35rem}h3{font-size:1.1rem}.updated{color:#64748b}.example{font-family:ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f6f8;padding:10px 16px;margin:0;border-left:3px solid #94a3b8}.bullet{padding-left:1.2rem;position:relative}.bullet:before{content:"•";position:absolute;left:0}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{border:1px solid #cbd5e1;padding:12px;text-align:left;vertical-align:top}th{background:#eaf0f6}td p,th p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}td:nth-child(2){font-family:ui-monospace,monospace} @media(max-width:640px){main{margin:0;padding:20px;border:0;border-radius:0}body{font-size:16px}h1{font-size:1.4rem}}@media print{body{background:white}main{border:0;margin:0;padding:0}.table-wrap{overflow:visible}h2,h3{break-after:avoid}tr,.example{break-inside:avoid}}</style></head><body><main>
+<h1>HABEAS PETITION GENERATOR — WORD TEMPLATE AUTHORING GUIDE</h1>
+<p class="updated">Updated October 13, 2026</p>
+<p style="font-size: .9rem;"><a href="Word%20Template%20Automation%20Guide%20for%20Conditional%20Text.docx" download style="text-decoration: underline;">Download Word version (.docx)</a></p>
+<h2>Purpose of this guide</h2>
+<p>The Habeas Petition Generator is a browser application that produces an editable habeas petition as a Microsoft Word document for one named petitioner. The immigration attorney enters information about the case in the Attorney Form shown in the browser, and the application inserts that information into a Word template.</p>
+<p>The sample petition uses the defined term “Petitioner” and ordinary singular verbs. The application does not automatically insert, choose, or change pronouns. An immigration attorney may edit the finished Word document to use pronouns where appropriate.</p>
+<p>For example, a Word template might say:</p>
+<p class="example">Petitioner &lt;Petitioner Name&gt; is detained at &lt;Detention Facility&gt;.</p>
+<p class="example">Petitioner brings this petition on Petitioner’s own behalf.</p>
+<p>The words in angle brackets tell the application where to insert information supplied by the immigration attorney. The rest of the document stays as written unless the template contains a conditional instruction, explained below.</p>
+<p><strong>Important: </strong>The included petition is a sample for drafting and testing, not an approved pleading. An attorney must review the finished Word document for legal accuracy, completeness, and formatting.</p>
+<h2>1. Add fields to the Word template</h2>
+<p>Use one pair of angle brackets to show where information should appear:</p>
+<p class="example">&lt;Petitioner Name&gt;     &lt;Detention Facility&gt;     &lt;Days In Custody&gt;</p>
+<p>A field identifies a place in the document where the application inserts the immigration attorney’s answer. For example, &lt;Petitioner Name&gt; is replaced with the name entered in the Attorney Form. If that field appears several times, the same answer is inserted at each location.</p>
+<p>When an author adds a new field name to the Word template used by the Attorney Form, the application automatically creates a corresponding data-entry box in the Attorney Form. This also applies when a field is used only in a condition or a footnote. In Drafting Studio, new fields in an uploaded template appear in its testing area; uploading a template in the Drafting Studio does not change the Attorney Form shown to the immigration attorney.  See Section 9 below on how to update the Attorney Form.</p>
+<p>The Attorney Form already includes common fields such as jurisdiction, detention facility, petition type, respondent, case number, and separate first, middle, last, and suffix boxes for the petitioner’s name. The application uses those name parts to assemble &lt;Petitioner Name&gt;.</p>
+<p><strong>Use consistent field names. </strong>Capital letters do not matter, and extra spaces immediately inside the brackets are ignored. But the words, punctuation, spaces within the name, hyphens, and underscores identify distinct fields.</p>
+<p class="example">&lt; Facility &gt; and &lt;FACILITY&gt; refer to the same field.</p>
+<p class="example">&lt;Date of Entry&gt; and &lt;Date-of-Entry&gt; are different fields.</p>
+<p>The application generally inserts answers as entered. For listed detention facilities, it inserts the full facility name. See Section 6 for the names used in conditional instructions. Writing a field name in capitals does not automatically capitalize the answer; use the appropriate formatting in Microsoft Word if the finished text should appear in capitals.</p>
+<p><strong>If an answer is missing: </strong>The application leaves the field name and its angle brackets in the generated Word document and displays a warning in the browser identifying the missing information. It does not add a “MISSING DATA” label or warning to the pleading.</p>
+<h2>2. Include language only when a fact applies</h2>
+<p>Some petition language belongs in the document only when a particular fact is true. A conditional instruction tells the application when to keep that language. For example:</p>
+<p class="example">{IF &lt;Days In Custody&gt; &gt;= 180}</p>
+<p class="example">Petitioner has been detained for at least 180 days.</p>
+<p class="example">{END IF}</p>
+<p>If the attorney enters 180 days or more, the sentence is included. If the answer is fewer than 180 days, the sentence is omitted. The instruction lines do not appear in a completed, resolved document.</p>
+<p>You can also give the application different wording to choose from:</p>
+<p class="example">{IF &lt;Days In Custody&gt; &gt;= 180}</p>
+<p class="example">Petitioner has been detained for at least 180 days.</p>
+<p class="example">{ELSE IF &lt;Days In Custody&gt; &gt;= 90}</p>
+<p class="example">Petitioner has been detained for at least 90 days.</p>
+<p class="example">{ELSE}</p>
+<p class="example">Petitioner has been detained for fewer than 90 days.</p>
+<p class="example">{END IF}</p>
+<p>The application uses the first alternative that applies. You may use more than one {ELSE IF ...}. The {ELSE} is optional, but every {IF ...} needs a matching {END IF}.</p>
+<p><strong>Important: </strong>Always put a complete field name inside angle brackets when writing a condition. For example, write &lt;Detention Facility&gt;, not Detention Facility. Without the brackets, the application will not recognize the text as a field.</p>
+<h2>3. Write conditions in a consistent way</h2>
+<p>The instruction itself uses curly braces, such as {IF ...}. The field being tested uses angle brackets, such as &lt;Days In Custody&gt;.</p>
+<p>To compare an answer with words, put the words inside double quotation marks. To compare a number, write the number without quotation marks:</p>
+<p class="example">{IF &lt;Detention Facility&gt; = "Plymouth"}</p>
+<p class="example">{IF &lt;Days In Custody&gt; &gt;= 180}</p>
+<p>The most common comparisons are “=” (equals), “!=” (does not equal), “&gt;” (greater than), “&lt;” (less than), “&gt;=” (at least), and “&lt;=” (at most). You must include spaces before and after each comparison symbol. Otherwise, the application will not recognize the condition correctly.</p>
+<p>When more than one fact must be considered, you may use AND, OR, NOT, and parentheses. For ordinary petitions, favor short, simple instructions. Examples and special rules appear in the reference at the end.</p>
+<p><strong>Keep each instruction together. </strong>Use Enter to place each instruction and each line of pleading text in its own Word paragraph. Word may automatically wrap a long instruction onto a second display line, but do not press Enter in the middle of a single instruction. Put the opening and closing instructions in their own unnumbered paragraphs when they control a whole numbered pleading paragraph.</p>
+<h2>4. What happens when information is missing</h2>
+<p>The application does not guess a missing fact. If a blank field prevents it from deciding which conditional sentence applies, it keeps the entire conditional passage in the generated Word document and displays a warning in the browser.</p>
+<p>For example, if &lt;Days In Custody&gt; is blank, the generated document will still show:</p>
+<p class="example">{IF &lt;Days In Custody&gt; &gt;= 180}</p>
+<p class="example">Petitioner has been detained for at least 180 days.</p>
+<p class="example">{ELSE}</p>
+<p class="example">Petitioner has been detained for fewer than 180 days.</p>
+<p class="example">{END IF}</p>
+<p>This makes the unresolved choice visible to the attorney rather than quietly selecting potentially incorrect language. Other fields with known answers will still be filled in within that passage.</p>
+<p><strong>Before using the pleading: </strong>Review the on-screen warnings in the browser, fill in missing answers or resolve remaining instructions in Word, and inspect the entire document. The application does not add warning paragraphs or comments to the pleading itself.</p>
+<h2>5. Use ordinary Word formatting</h2>
+<p>Prepare the template in Microsoft Word using normal paragraphs, headings, numbering, lists, simple tables, and footnotes. The application is designed to retain these features when it inserts answers or removes language that does not apply.</p>
+<p>A condition can cover several ordinary paragraphs, but its instructions must not be split between table cells. Footnotes may contain fields and conditions, but each conditional passage must begin and end within the same footnote or within the main document.</p>
+<p>Some Word features need special care. Do not put active template fields or conditional instructions in headers, footers, text boxes, hyperlinks, endnotes, nested tables, content controls, field codes, bookmarks or tracked-change text. The application may reject unsupported instructions to avoid damaging the file.</p>
+<p>Square brackets are ordinary legal writing, not fields. Examples such as [sic], [T]he, and claim[s] remain unchanged. If you need to show an actual angle-bracket field or conditional instruction in a generated document, consult the reference at the end of this guide.</p>
+<p><strong>Check in Microsoft Word. </strong>A successful download or a browser preview does not prove the pleading is ready. Open the generated document in Word and check the text, pagination, paragraph numbering, tables, footnotes, and formatting.</p>
+<h2>6. Select a detention facility or ICE office</h2>
+<p>Select the jurisdiction where the petitioner is detained.</p>
+<p>For Massachusetts, Rhode Island, New Hampshire, and Vermont, select a listed detention facility or choose “Other detention location…” to enter a facility or ICE office not included in the list.</p>
+<p>For Connecticut and Maine, “Other detention location…” is selected automatically because no specific facilities are currently listed.</p>
+<p>When “Other” is selected, enter the facility or ICE office name and/or location in the additional field. If that field is left blank, the generated document retains &lt;Detention Facility&gt; and displays a missing-information warning in the browser.</p>
+<p><strong>Important: </strong>If you change jurisdictions, review the detention-location information carefully. Previously entered custom-location text may remain in the form.</p>
+<h3>Using detention facility names in Word templates</h3>
+<p>When writing petition text, use the field &lt;Detention Facility&gt; wherever the full name of the detention facility should appear. The application automatically inserts the full facility name.</p>
+<p>When writing conditional instructions, you may use either the abbreviated name or the full name. The abbreviated name is recommended because it is easier to type.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Abbreviated name</th><th scope="col">Full name inserted into the Word document</th></tr></thead><tbody><tr><td>Plymouth</td><td>Plymouth County Correctional Facility</td></tr><tr><td>Burlington</td><td>Burlington ICE Office</td></tr><tr><td>Boston</td><td>Boston Field Office</td></tr><tr><td>Berlin</td><td>FCI Berlin</td></tr><tr><td>Strafford</td><td>Strafford County House of Corrections</td></tr><tr><td>Wyatt</td><td>Donald W. Wyatt Detention Facility</td></tr><tr><td>Northwest</td><td>Northwest State Correctional Facility</td></tr></tbody></table></div>
+<p class="example">{IF &lt;Detention Facility&gt; = "Plymouth"}</p>
+<p class="example">{IF &lt;Detention Facility&gt; = "Plymouth County Correctional Facility"}</p>
+<p>Both instructions evaluate to true when Plymouth is selected.</p>
+<p>An ordinary &lt;Detention Facility&gt; field inserts Plymouth County Correctional Facility.</p>
+<p>For Other detention location, the attorney’s entered text is used unchanged in both document substitution and conditions.</p>
+<h2>7. Preview, download, and save your answers</h2>
+<p>The Attorney Form opens with blank case information while Drafting Studio populates some sample fields. Once the application's included Word template loads, the form shows the standard fields and any additional fields found in that template.</p>
+<p>“Render Preview” shows the document in the browser. “Download Word Document” downloads an editable Microsoft Word file. Your browser saves it to your usual download location or asks where to save it. You can download directly without first generating a preview; both actions use the answers currently in the form.</p>
+<p>Starting a new Preview immediately clears any previous preview. Starting a Download leaves any existing preview visible. A preview may be blocked by safety checks on certain symbols or links even when downloading the Word document is allowed.</p>
+<p>Warnings in the browser identify fields that need answers, conditional language that could not be resolved, or document problems. Read them before relying on the document. A serious template error or document-generation error prevents a usable document from being produced.</p>
+<p>“Save Form Data” downloads your answers in a JSON file so you can restore them later using “Load Saved Data.” Loading saved answers does not automatically generate a petition; select Preview or Download afterward. Because the file may contain confidential client information, store and share it securely. Do not edit the file manually.</p>
+<h2>8. Test a proposed template in Drafting Studio</h2>
+<p>Drafting Studio is for people who prepare or revise Word templates. You can upload a document template, inspect its fields and conditional instructions, or paste a short sample for inspection. The Studio contains sample case information for testing; the Attorney Form itself starts blank.</p>
+<p><strong>1. </strong>Upload the proposed Word template in Drafting Studio.</p>
+<p><strong>2. </strong>Inspect it, and correct any field, syntax, or Word-structure errors reported.</p>
+<p><strong>3. </strong>Try several different case examples, including facts that should produce different sentences and fields deliberately left blank.</p>
+<p><strong>4. </strong>Generate a preview or download a Word document.</p>
+<p><strong>5. </strong>Open the generated document in Microsoft Word. Check every important legal statement, selected alternative, unresolved placeholder, footnote, table, and numbered paragraph.</p>
+<p><strong>Testing has limits. </strong>Drafting Studio can find some technical problems; passing its checks does not establish that the legal language is correct or that a template is ready to publish.  The attorney drafting the template is fully responsible for the legal content.</p>
+<h2>9. Submit a proposed template update</h2>
+<p>Uploading a template to Drafting Studio does not change the template used by the Attorney Form. The Attorney Form continues to use the petition template included with the application.</p>
+<p>Updating the Attorney Form’s template requires a change to the application files. This change can only be made by a website administrator with access to the development environment.</p>
+<p>If you wish to propose an updated template, please contact the website administrator and provide:</p>
+<p><strong>1. </strong>The proposed Word template.</p>
+<p><strong>2. </strong>A description of the changes.</p>
+<p><strong>3. </strong>Confirmation that you tested the updated template in Drafting Studio and found no syntax errors.</p>
+<p>Testing in Drafting Studio does not eliminate the need to review the generated document in Microsoft Word for accuracy, completeness, and formatting before submitting a proposed template for publication.</p>
+<h2>10. Final checklist</h2>
+<p class="bullet">Fields that require answers use angle brackets, for example &lt;Petitioner Name&gt;. Ordinary square brackets remain ordinary text.</p>
+<p class="bullet">Each {IF ...} instruction refers to a complete bracketed field name and has a matching {END IF}.</p>
+<p class="bullet">Different test cases produce the expected language; blank answers lead to visible warnings rather than assumptions.</p>
+<p class="bullet">You have opened and inspected representative generated pleadings in Microsoft Word.</p>
+<p class="bullet">A proposed update includes the revised template, a description of changes, and confirmation of Studio testing.</p>
+<h2>Quick reference: Field and condition rules</h2>
+<p>This section is for template authors who need to write or troubleshoot more complicated instructions. Most templates can use the simpler examples above.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col"><p>Purpose</p></th><th scope="col"><p>Write in the Word template</p></th><th scope="col"><p>What it does</p></th></tr></thead><tbody><tr><td><p>Insert a field</p></td><td><p>&lt;Petitioner Name&gt;</p></td><td><p>The attorney enters the answer in the browser.</p></td></tr><tr><td><p>Only when true</p></td><td><p>{IF &lt;Days In Custody&gt; &gt;= 180} ... {END IF}</p></td><td><p>Include text only when the condition is true.</p></td></tr><tr><td><p>Alternative wording</p></td><td><p>{IF ...} ... {ELSE} ... {END IF}</p></td><td><p>Choose the applicable wording.</p></td></tr><tr><td><p>Compare with text</p></td><td><p>{IF &lt;Detention Facility&gt; = "Plymouth"}</p></td><td><p>Use double quotation marks for ordinary text.</p></td></tr><tr><td><p>Compare two fields</p></td><td><p>{IF &lt;Current Facility&gt; != &lt;Prior Facility&gt;}</p></td><td><p>Compare answers entered for two fields.  Uses not equals operator</p></td></tr><tr><td><p>Combine tests</p></td><td><p>{IF &lt;Days In Custody&gt; &gt;= 180 AND NOT (&lt;Detention Facility&gt; = "Plymouth")}</p></td><td><p>Use parentheses for clarity.</p></td></tr><tr><td><p>Show literal syntax</p></td><td><p>\&lt;test@somewhere.com&gt;  or  \{IF &lt;Days In Custody&gt; &gt;= 180}</p></td><td><p>Place a backslash before the opening bracket or brace when you want the text to appear literally. The backslash is removed.</p></td></tr></tbody></table></div>
+<h3>Additional points to know:</h3>
+<p class="bullet">Text comparisons ignore capitalization and extra spaces at the beginning or end of an answer. Numbers used in numeric comparisons must actually be numbers; do not put them in quotation marks.</p>
+<p class="bullet">Field names may not contain angle brackets, curly braces, backslashes, or paragraph breaks. Use the same spelling consistently, including spaces, hyphens, and underscores.</p>
+<p class="bullet">If a condition cannot be decided because a needed answer is missing, the entire conditional passage remains visible in the document.</p>
+<p class="bullet">A condition may contain another condition, but each must have its own {END IF}. Use nested instructions sparingly and test all outcomes.</p>
+<p class="bullet">Some complex tables, footnote boundaries, tracked changes, field codes, bookmarks and other advanced Word controls and structures cannot safely contain automation instructions. If Drafting Studio reports an unsupported structure, revise the template in Word rather than trying to bypass the error.</p>
+</main></body></html>

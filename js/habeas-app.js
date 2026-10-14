@@ -6,7 +6,7 @@ function requirePleadingReady() {
     throw Error(pleadingInitialization.error || 'Template fields are still loading. Please wait.');
   }
 }
-const PRIMARY_FIELDS = ['Jurisdiction', 'Detention Facility', 'Facility', 'Type of Habeas Petition', 'Petition Type', 'Type of Habeas Petition Full', 'Petitioner Name', 'Petitioner First Name', 'Petitioner Middle Name', 'Petitioner Last Name', 'Petitioner Suffix', 'Plaintiff Name', 'Defendant Name', 'Respondent Name', 'Case Number', 'Docket Number'];
+const PRIMARY_FIELDS = ['Jurisdiction', 'Detention Facility', 'Type of Habeas Petition', 'Petition Type', 'Type of Habeas Petition Full', 'Petitioner Name', 'Petitioner First Name', 'Petitioner Middle Name', 'Petitioner Last Name', 'Petitioner Suffix', 'Plaintiff Name', 'Defendant Name', 'Respondent Name', 'Case Number', 'Docket Number'];
 function getFormData() {
   requirePleadingReady();
   if (typeof requireStudioReady === 'function') requireStudioReady();
@@ -18,9 +18,11 @@ function getFormData() {
   const fullName = [base, cleanSuffix].filter(Boolean).join(base && cleanSuffix ? ', ' : '');
   const petition = document.getElementById('petition_type');
   const detention = value('detention_facility') === '__other__' ? value('other_detention_location') : value('detention_facility');
+  // Identity comes from the selected option in this jurisdiction, never custom text.
+  const detentionFacility = DocxEngine.STATE_FACILITIES[value('jurisdiction')]?.find(f => f.value === value('detention_facility')) ?? null;
   const formData = Object.create(null);
   Object.assign(formData, {
-    Jurisdiction: value('jurisdiction'), 'Detention Facility': detention, Facility: detention,
+    Jurisdiction: value('jurisdiction'), 'Detention Facility': detention,
     'Type of Habeas Petition': value('petition_type'), 'Petition Type': value('petition_type'),
     'Type of Habeas Petition Full': petition?.value ? petition.selectedOptions[0]?.textContent ?? '' : '',
     'Petitioner Name': fullName, 'Plaintiff Name': fullName,
@@ -34,7 +36,7 @@ function getFormData() {
     formData[tag] = input.value;
   }
   TemplateLogic.values(formData);
-  return { formData, fullName };
+  return { formData, fullName, detentionFacility };
 }
 function renderDynamicFields(fields, container, section, sample = false) {
   const primary = new Set(PRIMARY_FIELDS.map(TemplateLogic.key));

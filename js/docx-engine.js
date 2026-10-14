@@ -2,10 +2,10 @@
 const DocxEngine = {
   templateCache: {},
   STATE_FACILITIES: {
-    Massachusetts: [{ value: 'Plymouth', text: 'Plymouth (Plymouth County Correctional Facility)' }, { value: 'Burlington', text: 'Burlington (Burlington ICE Office)' }, { value: 'Boston', text: 'Boston (Boston Field Office)' }],
-    'New Hampshire': [{ value: 'Berlin', text: 'Berlin (FCI Berlin)' }, { value: 'Strafford', text: 'Strafford (Strafford County House of Corrections)' }],
-    'Rhode Island': [{ value: 'Wyatt', text: 'Wyatt (Donald W. Wyatt Detention Facility)' }],
-    Vermont: [{ value: 'Northwest', text: 'Northwest (Northwest State Correctional Facility)' }]
+    Massachusetts: [{ value: 'Plymouth', fullName: 'Plymouth County Correctional Facility', text: 'Plymouth (Plymouth County Correctional Facility)' }, { value: 'Burlington', fullName: 'Burlington ICE Office', text: 'Burlington (Burlington ICE Office)' }, { value: 'Boston', fullName: 'Boston Field Office', text: 'Boston (Boston Field Office)' }],
+    'New Hampshire': [{ value: 'Berlin', fullName: 'FCI Berlin', text: 'Berlin (FCI Berlin)' }, { value: 'Strafford', fullName: 'Strafford County House of Corrections', text: 'Strafford (Strafford County House of Corrections)' }],
+    'Rhode Island': [{ value: 'Wyatt', fullName: 'Donald W. Wyatt Detention Facility', text: 'Wyatt (Donald W. Wyatt Detention Facility)' }],
+    Vermont: [{ value: 'Northwest', fullName: 'Northwest State Correctional Facility', text: 'Northwest (Northwest State Correctional Facility)' }]
   },
   updateFacilityDropdown(el, state) {
     if (!el) return;
@@ -287,7 +287,7 @@ const DocxEngine = {
     for (const cell of this.descendants(story.root, 'tc')) if (!this.descendants(cell, 'p').length) cell.appendChild(cell.ownerDocument.createElementNS(this.ns, 'w:p'));
     return true;
   },
-  compile(buffer, data) {
+  compile(buffer, data, detentionFacility = null) {
     const model = this.inspect(buffer), values = TemplateLogic.values(data), missing = new Map(), unresolved = [];
     const warnings = plan => {
       for (const f of plan.missing) missing.set(TemplateLogic.key(f), f);
@@ -295,7 +295,7 @@ const DocxEngine = {
     };
     // Validate every story first; evaluate facts only in surviving body text/footnotes.
     const body = model.parts.find(p => p.name === 'word/document.xml');
-    for (const story of body.stories) { const plan = TemplateLogic.plan(story.parsed, values); warnings(plan); body.changed = this.apply(story, plan); }
+    for (const story of body.stories) { const plan = TemplateLogic.plan(story.parsed, values, detentionFacility); warnings(plan); body.changed = this.apply(story, plan); }
     const referenced = new Set(this.descendants(body.doc, 'footnoteReference').map(n => n.getAttributeNS(this.ns, 'id')));
     for (const name of Object.keys(model.zip.files).filter(n => /^word\/(?:header|footer).*\.xml$/.test(n))) {
       const d = this.xml(model.zip.file(name).asText(), name);
@@ -306,7 +306,7 @@ const DocxEngine = {
       for (const story of foot.stories) {
         if (story.root.hasAttributeNS(this.ns, 'type') && story.root.getAttributeNS(this.ns, 'type') !== 'normal') continue;
         if (!referenced.has(story.id)) { story.root.remove(); foot.changed = true; continue; }
-        const plan = TemplateLogic.plan(story.parsed, values); warnings(plan); foot.changed = this.apply(story, plan) || foot.changed;
+        const plan = TemplateLogic.plan(story.parsed, values, detentionFacility); warnings(plan); foot.changed = this.apply(story, plan) || foot.changed;
       }
     }
     const allIds = foot ? this.descendants(foot.doc, 'footnote').map(n => n.getAttributeNS(this.ns, 'id')) : [];
@@ -317,8 +317,8 @@ const DocxEngine = {
     const blob = model.zip.generate({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
     return { blob, zip: model.zip, warnings: { missing: [...missing.values()], unresolved } };
   },
-  async generate({ templatePath, buffer, data }) {
-    return this.compile(buffer || await this.loadTemplate(templatePath), data);
+  async generate({ templatePath, buffer, data, detentionFacility }) {
+    return this.compile(buffer || await this.loadTemplate(templatePath), data, detentionFacility);
   },
   download(blob, filename) {
     if (typeof saveAs === 'function') { saveAs(blob, filename); return; }
@@ -383,8 +383,8 @@ window.GenerationUI = {
     this.status(download ? 'Preparing Word document for download…' : 'Generating current form preview…');
     try {
       // Read form synchronously at start, so later edits belong to later attempts.
-      const { formData, fullName } = options.collect();
-      const result = await DocxEngine.generate({ ...options, data: formData });
+      const { formData, fullName, detentionFacility } = options.collect();
+      const result = await DocxEngine.generate({ ...options, data: formData, detentionFacility });
       if (download) {
         DocxEngine.download(result.blob, `Habeas Petition ${fullName || 'Draft'}.docx`);
         if (isLatest()) this.status('Word document download prepared.', result);

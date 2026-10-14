@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify original migration plus explicit approved October 10 Word edits.
+"""Verify original migration plus explicit approved October 10 and October 13 Word edits.
 --self-test changes package copies only in memory; never writes the template.
 """
 import argparse,copy,io,re,subprocess,zipfile,xml.etree.ElementTree as E
@@ -65,11 +65,13 @@ def document(raw,original=False):
   E.SubElement(h.find(W+'pPr/'+W+'rPr'),W+'caps')
   r=copy.deepcopy(h.find(W+'r'));E.SubElement(r.find(W+'rPr'),W+'caps')
   r.find(W+'t').text=('IN THE UNITED STATES DISTRICT COURT FOR THE DISTRICT OF '
-   '{IF <Jurisdiction> = "Massachusetts"}MASSACHUSETTS'
-   '{ELSE IF <Jurisdiction> = "New Hampshire"}NEW HAMPSHIRE{ELSE}<JURISDICTION>{END IF}')
+   '<Jurisdiction>')
   for n in list(h):
    if n.tag==W+'r':h.remove(n)
   h.append(r)
+  for text in ps[27].iter(W+'t'):
+   if text.text and 'Detention Facility' in text.text:
+    text.text=text.text.replace('Detention Facility','<Detention Facility>')
   ps[34].set(W14+'textId','1BE7CCFB')
   t=ps[34].find('.//'+W+'t')
   assert t.text.startswith('2. Petitioner entered'),'Original numbering anchor changed'

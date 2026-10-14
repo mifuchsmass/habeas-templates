@@ -410,7 +410,7 @@
       assert(!doc.getElementById('other-detention-location-field').hidden);
       assert(doc.getElementById('other_detention_location').getBoundingClientRect().height>0);
       assert(doc.getElementById('other_detention_location').placeholder==='Facility or ICE office name and/or location');
-      if(values.length){facility.value=values[0];facility.dispatchEvent(new app.Event('change'));assert(doc.getElementById('other-detention-location-field').hidden);assert(app.getFormData().formData.Facility===values[0]);}
+      if(values.length){facility.value=values[0];facility.dispatchEvent(new app.Event('change'));assert(doc.getElementById('other-detention-location-field').hidden);assert(app.getFormData().formData['Detention Facility']===values[0]);assert(!Object.hasOwn(app.getFormData().formData,'Facility'));}
       assert(custom.value==='Synthetic office, another state');
     }
   });
@@ -420,7 +420,7 @@
     try{
       for(const state of ['Massachusetts','Rhode Island','New Hampshire','Vermont','Connecticut','Maine']){
         jurisdiction.value=state;jurisdiction.dispatchEvent(new app.Event('change'));facility.value='__other__';facility.dispatchEvent(new app.Event('change'));custom.value='';
-        const data=app.getFormData();assert(data.formData['Detention Facility']==='' && data.formData.Facility==='');
+        const data=app.getFormData();assert(data.formData['Detention Facility']==='' && !Object.hasOwn(data.formData,'Facility'));
         const result=await app.runPleadingAction(true);assert(result);
         const engine=app.eval('DocxEngine'),text=engine.visible(engine.xml(result.zip.file('word/document.xml').asText(),'review'));
         assert(text.includes('at the <Detention Facility>.'));
@@ -461,5 +461,46 @@
       assert(doc.getElementById('detention_facility').options.length===1);
     }
   });
+  for (const [label, win, document] of [['Attorney Form', app, doc], ['Drafting Studio', studio, sd]]) {
+    await test(label + ' uses listed identity for all seven full names, conditions, saved data, direct Download and Preview', async () => {
+      const buffer = await (await fetch('/templates/petition.docx')).arrayBuffer();
+      if (win === studio) studio.inspectTemplate(buffer, 'petition.docx');
+      const engine = win.eval('DocxEngine'), jurisdiction = document.getElementById('jurisdiction'), facility = document.getElementById('detention_facility');
+      const options = { buffer, collect: () => win.getFormData() };
+      const oldSave = win.saveAs; let downloaded;
+      win.saveAs = blob => downloaded = blob;
+      try {
+        for (const [state, entries] of Object.entries(engine.STATE_FACILITIES)) for (const entry of entries) {
+          jurisdiction.value = state; jurisdiction.dispatchEvent(new win.Event('change')); facility.value = entry.value; facility.dispatchEvent(new win.Event('change'));
+          const data = win.getFormData(); assert(data.detentionFacility?.fullName === entry.fullName);
+          assert(data.formData['Detention Facility'] === entry.value && !Object.hasOwn(data.formData, 'Facility'));
+          const saved = win.FormStorage.snapshot(); assert(saved.values['Detention Facility'] === entry.value);
+          facility.value = ''; win.FormStorage.restore(saved); assert(facility.value === entry.value);
+          const conditional = studio.createDocxFromText('{IF <Detention Facility> = "' + entry.value + '" AND <Detention Facility> = "' + entry.fullName + '"}YES <Detention Facility>{ELSE}NO{END IF}');
+          const checked = engine.compile(conditional, data.formData, data.detentionFacility);
+          assert(engine.visible(engine.xml(checked.zip.file('word/document.xml').asText(), 'condition')) === 'YES ' + entry.fullName);
+          downloaded = null; const result = await win.GenerationUI.run(true, options); assert(result && downloaded);
+          const text = engine.visible(engine.xml(new win.PizZip(await downloaded.arrayBuffer()).file('word/document.xml').asText(), 'download'));
+          assert(text.includes('warden in the ' + entry.fullName + ' in ' + state)); assert(text.includes('Respondents at the ' + entry.fullName + '.'));
+          await win.GenerationUI.run(false, options);
+          assert(document.getElementById('generation-status').textContent.includes('Preview ready'));
+          assert(document.getElementById('docx-preview-container').textContent.includes(entry.fullName));
+        }
+        // Other text that looks like a short code must remain custom, not become listed identity.
+        jurisdiction.value = 'Massachusetts'; jurisdiction.dispatchEvent(new win.Event('change')); facility.value = '__other__'; facility.dispatchEvent(new win.Event('change'));
+        document.getElementById('other_detention_location').value = 'Plymouth';
+        const custom = win.getFormData(); assert(custom.detentionFacility === null);
+        const customTemplate = studio.createDocxFromText('<Detention Facility>|{IF <Detention Facility> = "Plymouth County Correctional Facility"}YES{ELSE}NO{END IF}');
+        const customResult = engine.compile(customTemplate, custom.formData, custom.detentionFacility);
+        assert(engine.visible(engine.xml(customResult.zip.file('word/document.xml').asText(), 'custom')) === 'Plymouth|NO');
+        if (win === studio) {
+          studio.inspectTemplate(win.createDocxFromText('<Facility>|<Detention Facility>'), 'independent');
+          const independent = document.querySelector('[data-dynamic-tag="Facility"]'); assert(independent); independent.value = 'Separate answer';
+          const separate = win.getFormData(); assert(separate.formData.Facility === 'Separate answer' && separate.formData['Detention Facility'] === 'Plymouth');
+          studio.inspectTemplate(buffer, 'petition.docx');
+        }
+      } finally { win.saveAs = oldSave; }
+    });
+  }
   document.getElementById('test-output').textContent=JSON.stringify({results});
 })().catch(e=>document.getElementById('test-output').textContent=JSON.stringify({fatal:e.stack}));

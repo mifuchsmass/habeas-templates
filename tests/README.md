@@ -4,6 +4,7 @@ Run from the repository root. These checks never commit, push, or deploy.
 
 ```sh
 node tests/logic.test.js
+python3 tests/check-guide.py
 python3 tests/check-migration.py
 python3 tests/run-browser-tests.py
 python3 tests/check-docx.py /tmp/habeas-v3-implementation-tests
@@ -29,3 +30,5 @@ The scripts are copies of the CDN URLs already listed in `index.html`; they are 
 `ui.test.js` runs the real application and Studio in iframes using the pinned preview library. Its runner binds an ephemeral server **only to 127.0.0.1**, replaces CDN URLs in test responses with local vendor copies, and shuts down the server afterward. Downloads are captured as Blobs for inspection. This is local testing, not publishing.
 
 Results and representative DOCX files go to `/tmp/habeas-v3-implementation-tests` by default. Microsoft Word on Windows inspection is a separate, required acceptance step. Automated success does not establish Word acceptance.
+
+`check-guide.py` compares the editable Word master and HTML guide, checks the seven-facility table and current date, and verifies the guide and Word-download links. Browser checks cover selected listed identities, short/full comparisons, custom entries, and fresh acceptance petitions.
